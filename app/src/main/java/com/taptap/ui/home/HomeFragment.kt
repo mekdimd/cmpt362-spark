@@ -10,9 +10,7 @@ import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.ImageView
-import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.taptap.MainActivity
 import com.taptap.R
@@ -30,9 +28,13 @@ class HomeFragment : Fragment() {
     private var nfcAdapter: NfcAdapter? = null
 
     // ui elements
-    private lateinit var userInfo: TextView
-    private lateinit var nfcButton: Button
-    private lateinit var qrButton: Button
+    private lateinit var userName: android.widget.TextView
+    private lateinit var userTitle: android.widget.TextView
+    private lateinit var userLinkedIn: android.widget.TextView
+    private lateinit var userWebsite: android.widget.TextView
+    private lateinit var nfcButton: com.google.android.material.button.MaterialButton
+    private lateinit var receiveButton: com.google.android.material.button.MaterialButton
+    private lateinit var qrButton: com.google.android.material.button.MaterialButton
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -56,11 +58,12 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupViews(view: View) {
-        val textHome = view.findViewById<TextView>(R.id.text_home)
-        textHome.text = "Share Your Profile"
-
-        userInfo = view.findViewById(R.id.user_info)
+        userName = view.findViewById(R.id.user_name)
+        userTitle = view.findViewById(R.id.user_title)
+        userLinkedIn = view.findViewById(R.id.user_linkedin)
+        userWebsite = view.findViewById(R.id.user_website)
         nfcButton = view.findViewById(R.id.nfc_button)
+        receiveButton = view.findViewById(R.id.receive_button)
         qrButton = view.findViewById(R.id.qr_button)
 
         nfcAdapter = (requireActivity() as MainActivity).getNfcAdapter()
@@ -81,24 +84,26 @@ class HomeFragment : Fragment() {
     }
 
     private fun displayUserInfo(user: com.taptap.model.TapTapUser) {
-        var userInfoText = "👤 ${user.fullName}\n"
-        userInfoText += "📧 ${user.email}\n"
-        userInfoText += "📞 ${user.phone}\n"
-        userInfoText += "📍 ${user.location}\n"
+        userName.text = user.fullName
+        userTitle.text = user.description
+        userLinkedIn.text = user.linkedIn
 
-        if (user.description.isNotEmpty()) {
-            userInfoText += "💼 ${user.description}\n"
-        }
+        // Use email as website if no website provided
+        userWebsite.text = if (user.email.isNotEmpty()) user.email else "Add website"
 
-        if (user.linkedIn.isNotEmpty()) {
-            userInfoText += "🔗 ${user.linkedIn}"
-        }
+        // Hide LinkedIn if empty
+        userLinkedIn.visibility = if (user.linkedIn.isNotEmpty()) View.VISIBLE else View.GONE
 
-        userInfo.text = userInfoText
+        // Hide website/email if empty
+        userWebsite.visibility = if (user.email.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun setupShareButtons() {
         nfcButton.setOnClickListener { startNfcSharing() }
+        receiveButton.setOnClickListener {
+            // just show a message instead of navigating away
+            showMessage("Ready to receive: others can tap their phone or scan your QR code")
+        }
         qrButton.setOnClickListener { showQrCode() }
     }
 
@@ -131,42 +136,43 @@ class HomeFragment : Fragment() {
                 .setPositiveButton("Close", null)
                 .show()
         } catch (e: Exception) {
-            showMessage("Error generating QR code")
+            showMessage("Error generating QR code: ${e.message}")
         }
     }
 
     private fun generateQrCode(data: String): Bitmap {
-        var base64Data = Base64.encodeToString(data.toByteArray(), Base64.DEFAULT)
-        base64Data = base64Data.replace("\n", "")
-        base64Data = base64Data.replace("=", "")
-        base64Data = base64Data.replace("/", "_")
-        base64Data = base64Data.replace("+", "-")
+        try {
+            // Use URL-safe Base64 encoding (i.e. without padding)
+            val base64Data = Base64.encodeToString(
+                data.toByteArray(StandardCharsets.UTF_8),
+                Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+            )
 
-        val deepLink = "myapp://share?data=$base64Data"
+            // Create deep link with the data
+            val deepLink = "taptap://share?data=$base64Data"
 
-        val hints = java.util.EnumMap<EncodeHintType, Any>(EncodeHintType::class.java)
-        hints.put(EncodeHintType.CHARACTER_SET, "UTF-8")
-        hints.put(EncodeHintType.MARGIN, 1)
+            val hints = java.util.EnumMap<EncodeHintType, Any>(EncodeHintType::class.java)
+            hints[EncodeHintType.CHARACTER_SET] = "UTF-8"
+            hints[EncodeHintType.MARGIN] = 1
 
-        val bitMatrix: BitMatrix = MultiFormatWriter().encode(
-            deepLink, BarcodeFormat.QR_CODE, 500, 500, hints
-        )
+            val bitMatrix: BitMatrix = MultiFormatWriter().encode(
+                deepLink, BarcodeFormat.QR_CODE, 500, 500, hints
+            )
 
-        val width = bitMatrix.width
-        val height = bitMatrix.height
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+            val width = bitMatrix.width
+            val height = bitMatrix.height
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
 
-        for (x in 0 until width) {
-            for (y in 0 until height) {
-                val isBlack = bitMatrix.get(x, y)
-                if (isBlack) {
-                    bitmap.setPixel(x, y, Color.BLACK)
-                } else {
-                    bitmap.setPixel(x, y, Color.WHITE)
+            for (x in 0 until width) {
+                for (y in 0 until height) {
+                    val isBlack = bitMatrix.get(x, y)
+                    bitmap.setPixel(x, y, if (isBlack) Color.BLACK else Color.WHITE)
                 }
             }
+            return bitmap
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to generate QR code", e)
         }
-        return bitmap
     }
 
     private fun showMessage(message: String) {

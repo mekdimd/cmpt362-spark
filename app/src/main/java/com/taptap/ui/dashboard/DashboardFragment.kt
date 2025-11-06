@@ -9,8 +9,6 @@ import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -19,9 +17,6 @@ import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 
 class DashboardFragment : Fragment() {
-
-    private lateinit var resultText: TextView
-    private lateinit var scanButton: Button
 
     // qr scanner launcher
     private val qrScanner = registerForActivityResult(ScanContract()) { result ->
@@ -42,15 +37,7 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val textDashboard = view.findViewById<TextView>(R.id.text_dashboard)
-        textDashboard.text = "Receive Profile"
-
-        resultText = view.findViewById(R.id.result_text)
-        scanButton = view.findViewById(R.id.scan_button)
-
-        scanButton.setOnClickListener { startQrScanner() }
-
-        checkForIncomingData()
+        // TODO: Layout shows static connections right now
     }
 
     override fun onResume() {
@@ -69,53 +56,6 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    private fun startQrScanner() {
-        val options = ScanOptions()
-        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        options.setPrompt("Scan a QR code from TapTap")
-        options.setCameraId(0)
-        options.setBeepEnabled(false)
-        options.setBarcodeImageEnabled(true)
-        qrScanner.launch(options)
-    }
-
-    private fun handleScannedQrCode(qrContent: String) {
-        if (qrContent.startsWith("myapp://")) {
-            // its a deep link, parse it
-            val uri = Uri.parse(qrContent)
-            handleDeepLink(uri)
-        } else {
-            // try to parse as direct json
-            processReceivedData(qrContent, "QR Code")
-        }
-    }
-
-    private fun handleDeepLink(uri: Uri?) {
-        uri ?: return
-
-        try {
-            val encodedData = uri.getQueryParameter("data")
-            if (encodedData != null) {
-                // add padding back if needed
-                var paddedData = encodedData
-                val paddingNeeded = paddedData.length % 4
-                if (paddingNeeded > 0) {
-                    paddedData += "====".substring(0, 4 - paddingNeeded)
-                }
-
-                val finalData = paddedData
-                    .replace("_", "/")
-                    .replace("-", "+")
-
-                val decoded = Base64.decode(finalData, Base64.DEFAULT)
-                val jsonString = String(decoded, StandardCharsets.UTF_8)
-                processReceivedData(jsonString, "QR Code")
-            }
-        } catch (e: Exception) {
-            showMessage("Invalid QR code data")
-        }
-    }
-
     private fun handleNfcData(intent: Intent) {
         try {
             val messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
@@ -127,7 +67,40 @@ class DashboardFragment : Fragment() {
                 }
             }
         } catch (e: Exception) {
-            showMessage("Error reading NFC data")
+            showMessage("Error reading NFC data: ${e.message}")
+        }
+    }
+
+    private fun handleScannedQrCode(qrContent: String) {
+        try {
+            if (qrContent.startsWith("taptap://")) {
+                // Parse the deep link
+                val uri = Uri.parse(qrContent)
+                handleDeepLink(uri)
+            } else {
+                // Try to parse as direct JSON
+                processReceivedData(qrContent, "QR Code")
+            }
+        } catch (e: Exception) {
+            showMessage("Error processing QR code: ${e.message}")
+        }
+    }
+
+    private fun handleDeepLink(uri: Uri?) {
+        uri ?: return
+
+        try {
+            val encodedData = uri.getQueryParameter("data")
+            if (encodedData != null) {
+                // URL-safe Base64 decoding
+                val decoded = Base64.decode(encodedData, Base64.URL_SAFE)
+                val jsonString = String(decoded, StandardCharsets.UTF_8)
+                processReceivedData(jsonString, "QR Code")
+            } else {
+                showMessage("No data found in QR code")
+            }
+        } catch (e: Exception) {
+            showMessage("Invalid QR code data: ${e.message}")
         }
     }
 
@@ -135,37 +108,25 @@ class DashboardFragment : Fragment() {
         try {
             val data = JSONObject(jsonString)
 
-            // security check
+            //  make sure it's from our app
             if (!"com.taptap".equals(data.optString("app_id", ""))) {
                 showMessage("Data not from TapTap app")
                 return
             }
 
-            // display received profile
-            val result = """
-                 Received via $source
-                
-                👤 ${data.optString("fullName", "N/A")}
-                📧 ${data.optString("email", "N/A")}
-                📞 ${data.optString("phone", "N/A")}
-                💼 ${data.optString("description", "N/A")}
-                📍 ${data.optString("location", "N/A")}
-                ${if (data.optString("linkedIn", "").isNotEmpty()) "🔗 ${data.optString("linkedIn")}" else ""}
-            """.trimIndent()
+            // Show success message (instead of saving to db for now...)
+            val userName = data.optString("fullName", "Unknown User")
+            showMessage("Connection received via $source: $userName")
 
-            resultText.text = result
-            showMessage("Profile received via $source")
+            // Note: In a real implementation, you would save this connection to a database
+            // and update the connections list in the UI
 
         } catch (e: Exception) {
-            showMessage("Invalid data format")
+            showMessage("Invalid data format: ${e.message}")
         }
     }
 
     private fun showMessage(message: String) {
         android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
     }
 }

@@ -58,7 +58,7 @@ class UserViewModel(context: Context) : ViewModel() {
         }
     }
 
-    // main save function that updates the global user data
+    // this is the main save function that updates the global user data
     fun saveUserProfile(
         fullName: String,
         phone: String,

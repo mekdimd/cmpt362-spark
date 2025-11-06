@@ -2,51 +2,277 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@color/dark_background">
 
-    <TextView
-        android:id="@+id/text_home"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Share Your Profile"
-        android:textAlignment="center"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="24dp" />
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:paddingTop="24dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="24dp"
+        android:layout_marginBottom="60dp">
 
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="2dp">
-
-        <TextView
-            android:id="@+id/user_info"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:text="Loading user info..."
-            android:textSize="14sp" />
+            android:orientation="vertical">
 
-    </com.google.android.material.card.MaterialCardView>
+            <!-- App Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginBottom="32dp"
+                android:paddingTop="0dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/nfc_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Share via NFC"
-        android:layout_marginBottom="8dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="TapCard"
+                    android:textAlignment="center"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:letterSpacing="0.02"
+                    android:layout_marginBottom="8dp" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/qr_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Generate QR Code"
-        style="@style/Widget.Material3.Button.OutlinedButton" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Exchange business cards instantly"
+                    android:textAlignment="center"
+                    android:textSize="16sp"
+                    android:textColor="@color/dark_gray_600"
+                    android:letterSpacing="0.01" />
+
+            </LinearLayout>
+
+            <!-- Business Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="32dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="8dp"
+                app:cardBackgroundColor="@color/dark_surface"
+                android:padding="28dp">
+
+                <LinearLayout
+                    android:padding="16dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Name -->
+                    <TextView
+                        android:id="@+id/user_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Alex Morgan"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Title -->
+                    <TextView
+                        android:id="@+id/user_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Senior Software Engineer at InnovateTech"
+                        android:textSize="15sp"
+                        android:textColor="@color/dark_gray_600"
+                        android:layout_marginBottom="20dp" />
+
+                    <!-- LinkedIn -->
+                    <TextView
+                        android:id="@+id/user_linkedin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="linkedin.com/in/alexmorgan"
+                        android:textSize="14sp"
+                        android:textColor="@color/blue_400"
+                        android:layout_marginBottom="6dp" />
+
+                    <!-- Website -->
+                    <TextView
+                        android:id="@+id/user_website"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="www.alexmorgan.dev"
+                        android:textSize="14sp"
+                        android:textColor="@color/blue_400"
+                        android:layout_marginBottom="20dp" />
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/dark_outline"
+                        android:layout_marginBottom="20dp" />
+
+                    <!-- Tap Instructions -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Tap to Share"
+                        android:textAlignment="center"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:letterSpacing="0.02" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Action Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="32dp">
+
+                <!-- Tap to Share Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/nfc_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="Tap to Share"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="14dp"
+                    android:layout_marginBottom="12dp"
+                    style="@style/Widget.Material3.Button"
+                    app:backgroundTint="@color/blue_500" />
+
+                <!-- Tap to Receive Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/receive_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="Tap to Receive"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="14dp"
+                    android:layout_marginBottom="12dp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    app:strokeColor="@color/blue_500"
+                    app:strokeWidth="1dp" />
+
+            </LinearLayout>
+
+            <!-- Recent Activity Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/dark_surface"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:padding="16dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Recent Activity"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:layout_marginBottom="16dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="24"
+                                android:textSize="28sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/white" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Connections"
+                                android:textSize="14sp"
+                                android:textColor="@color/dark_gray_600" />
+
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="40dp"
+                            android:background="@color/dark_outline"
+                            android:layout_marginHorizontal="16dp" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="12"
+                                android:textSize="28sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/white" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="This Month"
+                                android:textSize="14sp"
+                                android:textColor="@color/dark_gray_600" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- QR Code Button at Bottom -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/qr_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Show QR Code"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="0dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeColor="@color/dark_outline"
+                app:strokeWidth="1dp"
+                android:layout_gravity="bottom"
+                android:background="@color/dark_surface"
+                android:layout_marginBottom="60dp" />
+        </LinearLayout>
+    </ScrollView>
 
 </LinearLayout>

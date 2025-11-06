@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var nfcAdapter: NfcAdapter? = null
 
-    // TODO: keep this as public..?
+    // make sure this is initialized early
     lateinit var userViewModel: UserViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
