@@ -282,7 +282,8 @@ fun MainScreenContent(
 
             composable(MainScreen.ConnectionDetail.route) { backStackEntry ->
                 val connectionId = backStackEntry.arguments?.getString("connectionId") ?: ""
-                val connection = connectionViewModel.connections.value?.find { it.connectionId == connectionId }
+                val connections by connectionViewModel.connections.observeAsState(emptyList())
+                val connection = connections.find { it.connectionId == connectionId }
 
                 if (connection != null) {
                     ConnectionDetailScreen(
