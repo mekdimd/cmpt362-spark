@@ -1,7 +1,6 @@
 package com.taptap.ui.dashboard
 
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
@@ -41,7 +40,9 @@ import java.nio.charset.StandardCharsets
 fun DashboardScreen(
     intent: Intent?,
     connectionViewModel: ConnectionViewModel,
-    onNavigateToDetail: (String) -> Unit
+    onNavigateToDetail: (String) -> Unit,
+    scannedUserFromHome: User? = null,
+    onScannedUserHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -60,12 +61,20 @@ fun DashboardScreen(
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             connectionViewModel.loadConnections(currentUserId)
-            // Refresh stale profiles (older than 1 hour)
-            connectionViewModel.refreshStaleProfiles(currentUserId)
         }
     }
 
-    // Handle incoming NFC/Deep link data
+    // Handle scanned user from HomeScreen
+    LaunchedEffect(scannedUserFromHome) {
+        if (scannedUserFromHome != null) {
+            scannedUser = scannedUserFromHome
+            scanMethod = "QR"
+            showConfirmationDialog = true
+            onScannedUserHandled()
+        }
+    }
+
+    // Handle incoming intent (NFC or deep link)
     LaunchedEffect(intent) {
         intent?.let {
             val user = checkForIncomingData(it, context)
@@ -142,12 +151,11 @@ fun DashboardScreen(
                         onClick = {
                             val options = ScanOptions().apply {
                                 setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                setPrompt("Scan a QR code from Spark")
+                                setPrompt("")
                                 setCameraId(0)
                                 setBeepEnabled(false)
                                 setBarcodeImageEnabled(true)
-                                setOrientationLocked(true)
-                                captureActivity = CaptureActivityPortrait::class.java
+                                setOrientationLocked(true)  // Lock orientation
                             }
                             qrScanner.launch(options)
                         }
@@ -167,7 +175,7 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Loading indicator
                 if (isLoading && connections.isEmpty()) {
@@ -177,7 +185,7 @@ fun DashboardScreen(
                     ) {
                         CircularProgressIndicator()
                     }
-                        } else if (connections.isEmpty()) {
+                } else if (connections.isEmpty()) {
                     // Empty state
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -187,7 +195,7 @@ fun DashboardScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                             modifier = Modifier.padding(32.dp)
-                                ) {
+                        ) {
                             Surface(
                                 modifier = Modifier.size(120.dp),
                                 shape = CircleShape,
@@ -217,7 +225,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                        } else {
+                } else {
                     // Connections list
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -539,13 +547,6 @@ fun ConfirmConnectionDialog(
     }
 }
 
-// Custom Capture Activity for Portrait QR scanning
-class CaptureActivityPortrait : com.journeyapps.barcodescanner.CaptureActivity() {
-    override fun onCreate(savedInstanceState: android.os.Bundle?) {
-        super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-    }
-}
 
 private fun checkForIncomingData(intent: Intent, context: android.content.Context): User? {
     return when (intent.action) {

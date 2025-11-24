@@ -98,10 +98,10 @@ class UserViewModel(context: Context) : ViewModel() {
         }
     }
 
-    private fun syncWithFirestore(userId: String) {
+    private fun syncWithFirestore(userId: String, forceRefresh: Boolean = false) {
         viewModelScope.launch {
             _isLoading.value = true
-            userRepository.getUser(userId)
+            userRepository.getUser(userId, forceRefresh)
                 .onSuccess { firestoreUser ->
                     if (firestoreUser != null) {
                         // Update local data with Firestore data
@@ -195,11 +195,21 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Force refresh user data from Firestore
+     * Force refresh user data from Firestore (bypasses cache)
      */
     fun refreshUserFromFirestore() {
         _currentUser.value?.userId?.let { userId ->
-            syncWithFirestore(userId)
+            syncWithFirestore(userId, forceRefresh = true)
+        }
+    }
+
+    /**
+     * Refresh user profile - gets fresh data from server
+     */
+    fun refreshUserProfile() {
+        val userId = auth.currentUser?.uid ?: _currentUser.value?.userId
+        if (userId != null) {
+            syncWithFirestore(userId, forceRefresh = true)
         }
     }
 

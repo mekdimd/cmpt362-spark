@@ -42,18 +42,25 @@ class UserRepository {
     /**
      * Retrieve a user from Firestore by userId
      * @param userId The user ID (Firebase Auth UID) to retrieve
+     * @param forceRefresh If true, bypasses cache and gets fresh data from server
      * @return Result with user or error
      */
-    suspend fun getUser(userId: String): Result<User?> {
+    suspend fun getUser(userId: String, forceRefresh: Boolean = false): Result<User?> {
         return try {
+            val source = if (forceRefresh) {
+                com.google.firebase.firestore.Source.SERVER
+            } else {
+                com.google.firebase.firestore.Source.DEFAULT
+            }
+
             val document = usersCollection
                 .document(userId)
-                .get()
+                .get(source)
                 .await()
 
             if (document.exists()) {
                 val user = User.fromMap(document.data as Map<String, Any>)
-                Log.d(TAG, "User retrieved successfully: $userId")
+                Log.d(TAG, "User retrieved successfully: $userId (forceRefresh: $forceRefresh)")
                 Result.success(user)
             } else {
                 Log.d(TAG, "User not found: $userId")

@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import com.taptap.ui.auth.ForgotPasswordScreen
 import com.taptap.ui.auth.LoginScreen
 import com.taptap.ui.auth.RegisterScreen
+import com.taptap.ui.connection.ConnectionDetailScreen
 import com.taptap.ui.dashboard.DashboardScreen
 import com.taptap.ui.home.HomeScreen
 import com.taptap.ui.map.MapScreen
@@ -193,6 +195,9 @@ fun MainScreenContent(
     val navController = rememberNavController()
     val items = listOf(MainScreen.Home, MainScreen.Dashboard,MainScreen.Map ,MainScreen.Profile)
 
+    // Shared state for scanned user from HomeScreen to DashboardScreen
+    var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -207,7 +212,7 @@ fun MainScreenContent(
                         onLogout()
                     }) {
                         Icon(
-                            Icons.Filled.ExitToApp,
+                            Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Logout",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
@@ -247,23 +252,30 @@ fun MainScreenContent(
             composable(MainScreen.Home.route) {
                 HomeScreen(
                     userViewModel = userViewModel,
+                    nfcAdapter = nfcAdapter,
                     connectionViewModel = connectionViewModel,
-                    nfcAdapter = nfcAdapter
+                    onNavigateToDashboard = { scannedUser ->
+                        // Store the scanned user and navigate to dashboard
+                        pendingScannedUser = scannedUser
+                        navController.navigate(MainScreen.Dashboard.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
+
             composable(MainScreen.Dashboard.route) {
                 DashboardScreen(
                     intent = currentIntent,
                     connectionViewModel = connectionViewModel,
                     onNavigateToDetail = { connectionId ->
                         navController.navigate(MainScreen.ConnectionDetail.createRoute(connectionId))
+                    },
+                    scannedUserFromHome = pendingScannedUser,
+                    onScannedUserHandled = {
+                        // Clear the pending scanned user after it's been handled
+                        pendingScannedUser = null
                     }
-                )
-            }
-
-            composable(MainScreen.Map.route) {
-                MapScreen(
-                    connectionViewModel = connectionViewModel
                 )
             }
 
@@ -274,12 +286,15 @@ fun MainScreenContent(
             }
             composable(MainScreen.ConnectionDetail.route) { backStackEntry ->
                 val connectionId = backStackEntry.arguments?.getString("connectionId") ?: ""
-                val connection = connectionViewModel.connections.value?.find { it.connectionId == connectionId }
+                val connections by connectionViewModel.connections.observeAsState(emptyList())
+                val connection = connections.find { it.connectionId == connectionId }
 
                 if (connection != null) {
-                    com.taptap.ui.connection.ConnectionDetailScreen(
+                    ConnectionDetailScreen(
                         connection = connection,
-                        onBack = { navController.popBackStack() },
+                        onBack = {
+                            navController.popBackStack()
+                        },
                         onRefresh = {
                             connectionViewModel.refreshConnectionProfile(connection)
                         },

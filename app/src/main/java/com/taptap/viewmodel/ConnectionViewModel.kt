@@ -442,7 +442,8 @@ class ConnectionViewModel : ViewModel() {
      */
     fun refreshConnectionProfile(connection: Connection) {
         viewModelScope.launch {
-            userRepository.getUser(connection.connectedUserId)
+            _isLoading.value = true
+            userRepository.getUser(connection.connectedUserId, forceRefresh = true)
                 .onSuccess { user ->
                     if (user != null) {
                         // Update connection with fresh profile data
@@ -469,11 +470,20 @@ class ConnectionViewModel : ViewModel() {
                                     conn
                                 }
                             }
+                            _successMessage.value = "Profile updated successfully"
+                            _isLoading.value = false
+                        }.onFailure { error ->
+                            _errorMessage.value = "Failed to update connection: ${error.message}"
+                            _isLoading.value = false
                         }
+                    } else {
+                        _errorMessage.value = "User profile not found"
+                        _isLoading.value = false
                     }
                 }
                 .onFailure { error ->
                     _errorMessage.value = "Failed to refresh profile: ${error.message}"
+                    _isLoading.value = false
                 }
         }
     }
