@@ -290,15 +290,37 @@ fun ContactInfoItem(
                 "Phone" -> Intent(Intent.ACTION_DIAL).apply {
                     data = Uri.parse("tel:$value")
                 }
+                "Location" -> Intent(Intent.ACTION_VIEW).apply {
+                    // Open in Google Maps
+                    data = Uri.parse("geo:0,0?q=${Uri.encode(value)}")
+                    setPackage("com.google.android.apps.maps")
+                }
                 "LinkedIn", "GitHub", "Instagram", "Website" -> Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse(if (value.startsWith("http")) value else "https://$value")
+                    val url = if (value.startsWith("http")) value else "https://$value"
+                    data = Uri.parse(url)
+                    // Force external browser
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 else -> null
             }
 
             intent?.let {
                 try {
-                    context.startActivity(it)
+                    // For maps, try with package first, fallback to without
+                    if (label == "Location") {
+                        try {
+                            context.startActivity(it)
+                        } catch (e: Exception) {
+                            // If Google Maps not installed, open in any map app
+                            val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
+                                data = Uri.parse("geo:0,0?q=${Uri.encode(value)}")
+                            }
+                            context.startActivity(fallbackIntent)
+                        }
+                    } else {
+                        context.startActivity(it)
+                    }
                 } catch (e: Exception) {
                     android.widget.Toast.makeText(
                         context,

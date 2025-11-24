@@ -348,7 +348,7 @@ class ConnectionViewModel : ViewModel() {
      */
     fun refreshConnectionProfile(connection: Connection) {
         viewModelScope.launch {
-            userRepository.getUser(connection.connectedUserId)
+            userRepository.getUser(connection.connectedUserId, forceRefresh = true)
                 .onSuccess { user ->
                     if (user != null) {
                         // Update connection with fresh profile data
