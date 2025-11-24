@@ -22,12 +22,14 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
 import com.taptap.model.User
+import com.taptap.viewmodel.ConnectionViewModel
 import com.taptap.viewmodel.UserViewModel
 
 @Composable
 fun HomeScreen(
     userViewModel: UserViewModel,
-    nfcAdapter: NfcAdapter?
+    nfcAdapter: NfcAdapter?,
+    connectionViewModel: ConnectionViewModel
 ) {
     val context = LocalContext.current
     val currentUser by userViewModel.currentUser.observeAsState(User())

@@ -1,5 +1,6 @@
 package com.taptap.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -9,6 +10,7 @@ import com.taptap.model.Connection
 import com.taptap.model.User
 import com.taptap.repository.ConnectionRepository
 import com.taptap.repository.UserRepository
+import com.taptap.service.LocationService
 import kotlinx.coroutines.launch
 
 /**
@@ -37,6 +39,13 @@ class ConnectionViewModel : ViewModel() {
 
     private val _connectionCount = MutableLiveData<Int>()
     val connectionCount: LiveData<Int> = _connectionCount
+
+    private lateinit var locationService: LocationService
+
+    // Initialize with context
+    fun initializeLocationService(context: Context) {
+        locationService = LocationService(context)
+    }
 
     /**
      * Load all connections for a user
@@ -77,6 +86,91 @@ class ConnectionViewModel : ViewModel() {
                 }
 
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Enhanced save connection with location capture
+     */
+    fun saveConnectionWithLocation(
+        userId: String,
+        connectedUser: User,
+        connectionMethod: String = "NFC",
+        context: Context
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+
+            try {
+                // Get current location
+                val location = locationService.getCurrentLocation()
+                var latitude = 0.0
+                var longitude = 0.0
+                var eventLocation = ""
+
+                if (location != null) {
+                    latitude = location.latitude
+                    longitude = location.longitude
+                    eventLocation = locationService.getLocationName(location.latitude, location.longitude)
+
+                    Log.d("ConnectionViewModel", "Captured location: $latitude, $longitude - $eventLocation")
+                } else {
+                    Log.w("ConnectionViewModel", "Could not capture location")
+                }
+
+                // Check if connection already exists
+                val existingConnections = _connections.value ?: emptyList()
+                val alreadyConnected = existingConnections.any {
+                    it.connectedUserId == connectedUser.userId
+                }
+
+                if (alreadyConnected) {
+                    _errorMessage.value = "You're already connected with ${connectedUser.fullName}"
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val connection = Connection(
+                    userId = userId,
+                    connectedUserId = connectedUser.userId,
+                    connectedUserName = connectedUser.fullName,
+                    connectedUserEmail = connectedUser.email,
+                    connectedUserPhone = connectedUser.phone,
+                    connectedUserLinkedIn = connectedUser.linkedIn,
+                    connectedUserGithub = connectedUser.github,
+                    connectedUserInstagram = connectedUser.instagram,
+                    connectedUserWebsite = connectedUser.website,
+                    connectedUserDescription = connectedUser.description,
+                    connectedUserLocation = connectedUser.location,
+                    timestamp = System.currentTimeMillis(),
+                    connectionMethod = connectionMethod,
+                    eventName = "", // You can set this based on context
+                    eventLocation = eventLocation,
+                    latitude = latitude,
+                    longitude = longitude,
+                    profileCachedAt = System.currentTimeMillis(),
+                    lastProfileUpdate = connectedUser.createdAt
+                )
+
+                connectionRepository.saveConnection(connection)
+                    .onSuccess { connectionId ->
+                        // Create reverse connection (bidirectional)
+                        createReverseConnection(connectedUser.userId, userId, connectionMethod)
+
+                        _successMessage.value = "Connection saved with location!"
+                        // Reload connections
+                        loadConnections(userId)
+                    }
+                    .onFailure { error ->
+                        _errorMessage.value = "Failed to save connection: ${error.message}"
+                    }
+
+            } catch (e: Exception) {
+                _errorMessage.value = "Error capturing location: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 

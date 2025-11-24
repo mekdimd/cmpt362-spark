@@ -25,6 +25,7 @@ import com.taptap.ui.auth.LoginScreen
 import com.taptap.ui.auth.RegisterScreen
 import com.taptap.ui.dashboard.DashboardScreen
 import com.taptap.ui.home.HomeScreen
+import com.taptap.ui.map.MapScreen
 import com.taptap.ui.profile.ProfileScreen
 import com.taptap.ui.theme.TapTapTheme
 import com.taptap.viewmodel.AuthViewModel
@@ -48,6 +49,9 @@ class MainActivity : ComponentActivity() {
         userViewModel = ViewModelProvider(this, factory)[UserViewModel::class.java]
         authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
         connectionViewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
+
+        // Initialize location service
+        connectionViewModel.initializeLocationService(this)
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         currentIntent.value = intent
@@ -81,6 +85,7 @@ sealed class Screen(val route: String) {
 sealed class MainScreen(val route: String, val title: String, val icon: ImageVector) {
     object Home : MainScreen("home", "Home", Icons.Filled.Home)
     object Dashboard : MainScreen("dashboard", "Connections", Icons.Filled.People)
+    object Map : MainScreen("map", "Map", Icons.Filled.Map)
     object Profile : MainScreen("profile", "Profile", Icons.Filled.AccountCircle)
     object ConnectionDetail : MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
         fun createRoute(connectionId: String) = "connection_detail/$connectionId"
@@ -186,7 +191,7 @@ fun MainScreenContent(
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
-    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Profile)
+    val items = listOf(MainScreen.Home, MainScreen.Dashboard,MainScreen.Map ,MainScreen.Profile)
 
     Scaffold(
         topBar = {
@@ -242,6 +247,7 @@ fun MainScreenContent(
             composable(MainScreen.Home.route) {
                 HomeScreen(
                     userViewModel = userViewModel,
+                    connectionViewModel = connectionViewModel,
                     nfcAdapter = nfcAdapter
                 )
             }
@@ -254,6 +260,13 @@ fun MainScreenContent(
                     }
                 )
             }
+
+            composable(MainScreen.Map.route) {
+                MapScreen(
+                    connectionViewModel = connectionViewModel
+                )
+            }
+
             composable(MainScreen.Profile.route) {
                 ProfileScreen(
                     userViewModel = userViewModel

@@ -239,10 +239,12 @@ fun DashboardScreen(
                 user = scannedUser!!,
                 scanMethod = scanMethod,
                 onConfirm = {
-                    connectionViewModel.saveConnection(
+                    // Use the new method with location capture
+                    connectionViewModel.saveConnectionWithLocation(
                         userId = currentUserId,
                         connectedUser = scannedUser!!,
-                        connectionMethod = scanMethod
+                        connectionMethod = scanMethod,
+                        context = context
                     )
                     showConfirmationDialog = false
                     scannedUser = null

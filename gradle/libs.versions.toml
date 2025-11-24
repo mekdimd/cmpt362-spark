@@ -20,8 +20,21 @@ navigationCompose = "2.9.5"
 lifecycleRuntimeCompose = "2.9.4"
 firebaseBom = "33.6.0"
 googleServices = "4.4.2"
+runtimeLivedata = "1.9.5"
+
+# Add these versions
+play-services-maps = "18.2.0"
+play-services-location = "21.0.1"
+maps-compose = "2.11.4"
+accompanist-permissions = "0.32.0"
 
 [libraries]
+# Add these libraries
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "play-services-maps" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "play-services-location" }
+maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "maps-compose" }
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist-permissions" }
+
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -52,6 +65,7 @@ material-v1110 = { module = "com.google.android.material:material", version.ref 
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+androidx-compose-runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

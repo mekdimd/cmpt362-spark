@@ -1,5 +1,7 @@
 package com.taptap.model
 
+import com.google.android.gms.maps.model.LatLng
+
 /**
  * Represents a connection between two users
  * Stores information about when and where users connected
@@ -20,12 +22,14 @@ data class Connection(
     val timestamp: Long = System.currentTimeMillis(),
     val connectionMethod: String = "NFC", // NFC or QR
     val eventName: String = "", // Optional event tag
+
     val eventLocation: String = "", // Where the connection happened
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+
     val notes: String = "", // User's personal notes about this connection
     val profileCachedAt: Long = System.currentTimeMillis(), // When profile data was last synced
-    val lastProfileUpdate: Long = 0L // When the user's profile was last updated in Firestore
+    val lastProfileUpdate: Long = 0L, // When the user's profile was last updated in Firestore
 ) {
     /**
      * Convert to map for Firestore
@@ -140,6 +144,27 @@ data class Connection(
         val date = java.util.Date(timestamp)
         val format = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
         return format.format(date)
+    }
+
+    /**
+     * Check if connection has valid location data
+     */
+    fun hasValidLocation(): Boolean {
+        return latitude != 0.0 &&
+                longitude != 0.0 &&
+                latitude >= -90 && latitude <= 90 &&
+                longitude >= -180 && longitude <= 180
+    }
+
+    /**
+     * Get LatLng for maps
+     */
+    fun getLatLng(): LatLng? {
+        return if (hasValidLocation()) {
+            LatLng(latitude, longitude)
+        } else {
+            null
+        }
     }
 }
 

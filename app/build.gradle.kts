@@ -17,6 +17,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["MAPS_API_KEY"] = project.findProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
@@ -37,6 +38,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -81,4 +83,15 @@ dependencies {
     // QR Code Generation
     implementation("com.google.zxing:core:3.5.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
+    // Google Maps Compose
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+    implementation(libs.play.services.location)
+
+    // Permissions handling for location
+    implementation(libs.accompanist.permissions)
+
+    // Optional: Maps utility library for clustering, etc.
+    implementation("com.google.maps.android:maps-utils-ktx:3.4.0")
 }
