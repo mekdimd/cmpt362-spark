@@ -7,100 +7,556 @@ import android.nfc.NfcAdapter
 import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import com.google.firebase.auth.FirebaseAuth
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.taptap.model.Connection
+import com.taptap.model.User
+import com.taptap.viewmodel.ConnectionViewModel
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    intent: Intent?
+    intent: Intent?,
+    connectionViewModel: ConnectionViewModel,
+    onNavigateToDetail: (String) -> Unit,
+    scannedUserFromHome: User? = null,
+    onScannedUserHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var resultText by remember { mutableStateOf("No profile received yet") }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
-    val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) {
-            resultText = handleScannedQrCode(result.contents, context)
+    val connections by connectionViewModel.connections.observeAsState(emptyList())
+    val isLoading by connectionViewModel.isLoading.observeAsState(false)
+    val errorMessage by connectionViewModel.errorMessage.observeAsState()
+    val successMessage by connectionViewModel.successMessage.observeAsState()
+
+    var showConfirmationDialog by remember { mutableStateOf(false) }
+    var scannedUser by remember { mutableStateOf<User?>(null) }
+    var scanMethod by remember { mutableStateOf("QR") }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    // Load connections on screen load
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            connectionViewModel.loadConnections(currentUserId)
         }
     }
 
+    // Handle scanned user from HomeScreen
+    LaunchedEffect(scannedUserFromHome) {
+        if (scannedUserFromHome != null) {
+            scannedUser = scannedUserFromHome
+            scanMethod = "QR"
+            showConfirmationDialog = true
+            onScannedUserHandled()
+        }
+    }
+
+    // Handle incoming intent (NFC or deep link)
     LaunchedEffect(intent) {
         intent?.let {
-            resultText = checkForIncomingData(it, context)
+            val user = checkForIncomingData(it, context)
+            if (user != null) {
+                scannedUser = user
+                scanMethod = if (it.action == NfcAdapter.ACTION_NDEF_DISCOVERED) "NFC" else "QR"
+                showConfirmationDialog = true
+            }
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Receive Profile",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        Button(
-            onClick = {
-                val options = ScanOptions().apply {
-                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                    setPrompt("Scan a QR code from TapTap")
-                    setCameraId(0)
-                    setBeepEnabled(false)
-                    setBarcodeImageEnabled(true)
-                }
-                qrScanner.launch(options)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        ) {
-            Text("Scan QR Code")
+    // QR Scanner
+    val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            val user = handleScannedQrCode(result.contents, context)
+            if (user != null) {
+                scannedUser = user
+                scanMethod = "QR"
+                showConfirmationDialog = true
+            }
         }
+    }
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+    // Show success message
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            connectionViewModel.clearMessages()
+        }
+    }
+
+    // Show error message
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Handle refresh state
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            isRefreshing = false
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                connectionViewModel.loadConnections(currentUserId)
+                connectionViewModel.refreshStaleProfiles(currentUserId)
+            }
         ) {
-            Text(
-                text = resultText,
-                style = MaterialTheme.typography.bodyMedium,
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
+            ) {
+                // Header with scan button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Connections",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // Scan button
+                    FilledTonalButton(
+                        onClick = {
+                            val options = ScanOptions().apply {
+                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                setPrompt("")
+                                setCameraId(0)
+                                setBeepEnabled(false)
+                                setBarcodeImageEnabled(true)
+                                setOrientationLocked(true)  // Lock orientation
+                            }
+                            qrScanner.launch(options)
+                        }
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Scan")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Connections count
+                Text(
+                    text = "${connections.size} Connection${if (connections.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Loading indicator
+                if (isLoading && connections.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (connections.isEmpty()) {
+                    // Empty state
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(32.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(120.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.PersonAdd,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "No connections yet",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Scan a QR code to add your first connection",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    // Connections list
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(connections) { connection ->
+                            ConnectionSummaryCard(
+                                connection = connection,
+                                onClick = { onNavigateToDetail(connection.connectionId) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Confirmation Dialog (outside PullToRefreshBox but inside Box)
+        if (showConfirmationDialog && scannedUser != null) {
+            ConfirmConnectionDialog(
+                user = scannedUser!!,
+                scanMethod = scanMethod,
+                onConfirm = {
+                    // Use the new method with location capture
+                    connectionViewModel.saveConnectionWithLocation(
+                        userId = currentUserId,
+                        connectedUser = scannedUser!!,
+                        connectionMethod = scanMethod,
+                        context = context
+                    )
+                    showConfirmationDialog = false
+                    scannedUser = null
+                },
+                onDismiss = {
+                    showConfirmationDialog = false
+                    scannedUser = null
+                }
             )
         }
     }
 }
 
-private fun checkForIncomingData(intent: Intent, context: android.content.Context): String {
-    return when (intent.action) {
-        Intent.ACTION_VIEW -> handleDeepLink(intent.data, context)
-        NfcAdapter.ACTION_NDEF_DISCOVERED -> handleNfcData(intent, context)
-        else -> "No profile received yet"
+@Composable
+fun ConnectionSummaryCard(
+    connection: Connection,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp,
+            hoveredElevation = 6.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Profile picture placeholder
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = connection.connectedUserName
+                        .split(" ")
+                        .mapNotNull { it.firstOrNull()?.uppercase() }
+                        .take(2)
+                        .joinToString(""),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Connection info
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = connection.connectedUserName.ifEmpty { "Unknown" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (connection.connectedUserDescription.isNotEmpty()) {
+                    Text(
+                        text = connection.connectedUserDescription,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = connection.getRelativeTimeString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (connection.connectedUserLocation.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = connection.connectedUserLocation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Badges column
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Method badge
+                Surface(
+                    color = if (connection.connectionMethod == "NFC")
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = connection.connectionMethod,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+
+                // Stale indicator
+                if (connection.needsProfileRefresh()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = "Update",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
-private fun handleScannedQrCode(qrContent: String, context: android.content.Context): String {
+@Composable
+fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+fun ConfirmConnectionDialog(
+    user: User,
+    scanMethod: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Profile Scanned",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Received via $scanMethod",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // User details
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        if (user.fullName.isNotEmpty()) {
+                            DetailRow(Icons.Default.Person, user.fullName)
+                        }
+                        if (user.email.isNotEmpty()) {
+                            DetailRow(Icons.Default.Email, user.email)
+                        }
+                        if (user.phone.isNotEmpty()) {
+                            DetailRow(Icons.Default.Phone, user.phone)
+                        }
+                        if (user.linkedIn.isNotEmpty()) {
+                            DetailRow(Icons.Default.Link, "LinkedIn: ${user.linkedIn}")
+                        }
+                        if (user.github.isNotEmpty()) {
+                            DetailRow(Icons.Default.Code, "GitHub: ${user.github}")
+                        }
+                        if (user.instagram.isNotEmpty()) {
+                            DetailRow(Icons.Default.Photo, "Instagram: ${user.instagram}")
+                        }
+                        if (user.website.isNotEmpty()) {
+                            DetailRow(Icons.Default.Language, "Website: ${user.website}")
+                        }
+                        if (user.description.isNotEmpty()) {
+                            DetailRow(Icons.Default.Description, user.description)
+                        }
+                        if (user.location.isNotEmpty()) {
+                            DetailRow(Icons.Default.LocationOn, user.location)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Save this connection?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    FilledTonalButton(
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Save")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+private fun checkForIncomingData(intent: Intent, context: android.content.Context): User? {
+    return when (intent.action) {
+        Intent.ACTION_VIEW -> handleDeepLink(intent.data, context)
+        NfcAdapter.ACTION_NDEF_DISCOVERED -> handleNfcData(intent, context)
+        else -> null
+    }
+}
+
+private fun handleScannedQrCode(qrContent: String, context: android.content.Context): User? {
     return if (qrContent.startsWith("myapp://")) {
         val uri = Uri.parse(qrContent)
         handleDeepLink(uri, context)
@@ -109,8 +565,8 @@ private fun handleScannedQrCode(qrContent: String, context: android.content.Cont
     }
 }
 
-private fun handleDeepLink(uri: Uri?, context: android.content.Context): String {
-    uri ?: return "No profile received yet"
+private fun handleDeepLink(uri: Uri?, context: android.content.Context): User? {
+    uri ?: return null
 
     return try {
         val encodedData = uri.getQueryParameter("data")
@@ -129,15 +585,16 @@ private fun handleDeepLink(uri: Uri?, context: android.content.Context): String 
             val jsonString = String(decoded, StandardCharsets.UTF_8)
             processReceivedData(jsonString, "QR Code", context)
         } else {
-            "Invalid QR code data"
+            Toast.makeText(context, "Invalid QR code data", Toast.LENGTH_SHORT).show()
+            null
         }
     } catch (e: Exception) {
-        Toast.makeText(context, "Invalid QR code data", Toast.LENGTH_SHORT).show()
-        "Invalid QR code data"
+        Toast.makeText(context, "Invalid QR code data: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
     }
 }
 
-private fun handleNfcData(intent: Intent, context: android.content.Context): String {
+private fun handleNfcData(intent: Intent, context: android.content.Context): User? {
     return try {
         val messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
         if (messages != null && messages.isNotEmpty()) {
@@ -146,42 +603,52 @@ private fun handleNfcData(intent: Intent, context: android.content.Context): Str
                 val jsonString = String(message.records[0].payload, StandardCharsets.UTF_8)
                 processReceivedData(jsonString, "NFC", context)
             } else {
-                "Error reading NFC data"
+                Toast.makeText(context, "Error reading NFC data", Toast.LENGTH_SHORT).show()
+                null
             }
         } else {
-            "Error reading NFC data"
+            Toast.makeText(context, "Error reading NFC data", Toast.LENGTH_SHORT).show()
+            null
         }
     } catch (e: Exception) {
-        Toast.makeText(context, "Error reading NFC data", Toast.LENGTH_SHORT).show()
-        "Error reading NFC data"
+        Toast.makeText(context, "Error reading NFC data: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
     }
 }
 
-private fun processReceivedData(jsonString: String, source: String, context: android.content.Context): String {
+private fun processReceivedData(
+    jsonString: String,
+    source: String,
+    context: android.content.Context
+): User? {
     return try {
         val data = JSONObject(jsonString)
 
         if (!"com.taptap".equals(data.optString("app_id", ""))) {
-            Toast.makeText(context, "Data not from TapTap app", Toast.LENGTH_SHORT).show()
-            return "Data not from TapTap app"
+            Toast.makeText(context, "Data not from Spark app", Toast.LENGTH_SHORT).show()
+            return null
         }
 
         Toast.makeText(context, "Profile received via $source", Toast.LENGTH_SHORT).show()
 
-        """
-            Received via $source
-            
-            👤 ${data.optString("fullName", "N/A")}
-            📧 ${data.optString("email", "N/A")}
-            📞 ${data.optString("phone", "N/A")}
-            💼 ${data.optString("description", "N/A")}
-            📍 ${data.optString("location", "N/A")}
-            ${if (data.optString("linkedIn", "").isNotEmpty()) "🔗 ${data.optString("linkedIn")}" else ""}
-        """.trimIndent()
-
+        // Create User object from JSON
+        User(
+            userId = data.optString("userId", ""),
+            createdAt = data.optLong("createdAt", 0),
+            lastSeen = data.optString("lastSeen", ""),
+            fullName = data.optString("fullName", ""),
+            email = data.optString("email", ""),
+            phone = data.optString("phone", ""),
+            linkedIn = data.optString("linkedIn", ""),
+            github = data.optString("github", ""),
+            instagram = data.optString("instagram", ""),
+            website = data.optString("website", ""),
+            description = data.optString("description", ""),
+            location = data.optString("location", "")
+        )
     } catch (e: Exception) {
-        Toast.makeText(context, "Invalid data format", Toast.LENGTH_SHORT).show()
-        "Invalid data format"
+        Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
     }
 }
 

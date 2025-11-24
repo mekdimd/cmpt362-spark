@@ -5,79 +5,223 @@ import android.graphics.Color
 import android.nfc.NfcAdapter
 import android.util.Base64
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
-import com.taptap.model.TapTapUser
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import com.taptap.model.User
+import com.taptap.viewmodel.ConnectionViewModel
 import com.taptap.viewmodel.UserViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     userViewModel: UserViewModel,
-    nfcAdapter: NfcAdapter?
+    nfcAdapter: NfcAdapter?,
+    connectionViewModel: com.taptap.viewmodel.ConnectionViewModel? = null,
+    onNavigateToDashboard: ((User) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val currentUser by userViewModel.currentUser.observeAsState(TapTapUser())
+    val currentUser by userViewModel.currentUser.observeAsState(User())
+    val isLoading by userViewModel.isLoading.observeAsState(false)
     var showQrDialog by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    // Handle refresh state
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            isRefreshing = false
+        }
+    }
+
+    // QR Scanner - when a profile is scanned, navigate to dashboard
+    val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            Toast.makeText(context, "Scanned: ${result.contents}", Toast.LENGTH_SHORT).show()
+            val user = handleScannedQrCode(result.contents, context)
+            if (user != null) {
+                // Trigger navigation to dashboard with scanned user
+                onNavigateToDashboard?.invoke(user)
+            }
+        }
+    }
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            userViewModel.refreshUserProfile()
+        }
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Text(
-            text = "Share Your Profile",
-            style = MaterialTheme.typography.titleLarge,
+            text = "Your Profile",
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // User Info Card
-        Card(
+        // Large Profile Card
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                UserInfoItem(icon = "👤", text = currentUser.fullName)
-                UserInfoItem(icon = "📧", text = currentUser.email)
-                UserInfoItem(icon = "📞", text = currentUser.phone)
-                UserInfoItem(icon = "📍", text = currentUser.location)
-
-                if (currentUser.description.isNotEmpty()) {
-                    UserInfoItem(icon = "💼", text = currentUser.description)
+                // Profile Picture Placeholder
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = currentUser.fullName
+                            .split(" ")
+                            .mapNotNull { it.firstOrNull()?.uppercase() }
+                            .take(2)
+                            .joinToString(""),
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
-                if (currentUser.linkedIn.isNotEmpty()) {
-                    UserInfoItem(icon = "🔗", text = currentUser.linkedIn)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Name
+                Text(
+                    text = currentUser.fullName.ifEmpty { "No Name" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (currentUser.description.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = currentUser.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                HorizontalDivider()
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (currentUser.email.isNotEmpty()) {
+                    ProfileInfoRow(
+                        icon = Icons.Default.Email,
+                        text = currentUser.email
+                    )
+                }
+
+                if (currentUser.phone.isNotEmpty()) {
+                    ProfileInfoRow(
+                        icon = Icons.Default.Phone,
+                        text = currentUser.phone
+                    )
+                }
+
+                if (currentUser.location.isNotEmpty()) {
+                    ProfileInfoRow(
+                        icon = Icons.Default.LocationOn,
+                        text = currentUser.location
+                    )
+                }
+
+                // Social Links
+                val hasSocials = currentUser.linkedIn.isNotEmpty() ||
+                                currentUser.github.isNotEmpty() ||
+                                currentUser.instagram.isNotEmpty() ||
+                                currentUser.website.isNotEmpty()
+
+                if (hasSocials) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (currentUser.linkedIn.isNotEmpty()) {
+                            AssistChip(
+                                onClick = { },
+                                label = { Text("LinkedIn") },
+                                leadingIcon = { Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        if (currentUser.github.isNotEmpty()) {
+                            AssistChip(
+                                onClick = { },
+                                label = { Text("GitHub") },
+                                leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // Share Buttons
+        // Action Buttons Section
+        Text(
+            text = "Share Your Profile",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
+
+        // NFC Share Button
         if (nfcAdapter != null) {
-            Button(
+            FilledTonalButton(
                 onClick = {
                     if (!nfcAdapter.isEnabled) {
                         Toast.makeText(context, "Please enable NFC in settings", Toast.LENGTH_SHORT)
@@ -92,17 +236,64 @@ fun HomeScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(56.dp)
                     .padding(bottom = 8.dp)
             ) {
-                Text("Share via NFC")
+                Icon(
+                    Icons.Default.Nfc,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Share via NFC", style = MaterialTheme.typography.titleMedium)
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
+        // Generate QR Code Button
         OutlinedButton(
             onClick = { showQrDialog = true },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
         ) {
-            Text("Generate QR Code")
+            Icon(
+                Icons.Default.QrCode2,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Generate QR Code", style = MaterialTheme.typography.titleMedium)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Scan QR Code Button
+        OutlinedButton(
+            onClick = {
+                val options = ScanOptions().apply {
+                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    setPrompt("")
+                    setCameraId(0)
+                    setBeepEnabled(false)
+                    setBarcodeImageEnabled(true)
+                    setOrientationLocked(true) // Lock orientation
+                }
+                qrScanner.launch(options)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Icon(
+                Icons.Default.QrCodeScanner,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Scan QR Code", style = MaterialTheme.typography.titleMedium)
+        }
         }
     }
 
@@ -115,12 +306,29 @@ fun HomeScreen(
 }
 
 @Composable
-fun UserInfoItem(icon: String, text: String) {
-    if (text.isNotEmpty()) {
+fun ProfileInfoRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
-            text = "$icon $text",
+            text = text,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(vertical = 4.dp)
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -213,3 +421,78 @@ private fun generateQrCode(userViewModel: UserViewModel): Bitmap {
     }
     return bitmap
 }
+
+private fun handleScannedQrCode(qrContent: String, context: android.content.Context): User? {
+    return if (qrContent.startsWith("myapp://")) {
+        val uri = android.net.Uri.parse(qrContent)
+        handleDeepLink(uri, context)
+    } else {
+        processReceivedData(qrContent, "QR Code", context)
+    }
+}
+
+private fun handleDeepLink(uri: android.net.Uri?, context: android.content.Context): User? {
+    uri ?: return null
+
+    return try {
+        val encodedData = uri.getQueryParameter("data")
+        if (encodedData != null) {
+            var paddedData = encodedData
+            val paddingNeeded = paddedData.length % 4
+            if (paddingNeeded > 0) {
+                paddedData += "====".substring(0, 4 - paddingNeeded)
+            }
+
+            val finalData = paddedData
+                .replace("_", "/")
+                .replace("-", "+")
+
+            val decoded = Base64.decode(finalData, Base64.DEFAULT)
+            val jsonString = String(decoded, java.nio.charset.StandardCharsets.UTF_8)
+            processReceivedData(jsonString, "QR Code", context)
+        } else {
+            Toast.makeText(context, "Invalid QR code data", Toast.LENGTH_SHORT).show()
+            null
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Invalid QR code data: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
+    }
+}
+
+private fun processReceivedData(
+    jsonString: String,
+    source: String,
+    context: android.content.Context
+): User? {
+    return try {
+        val data = org.json.JSONObject(jsonString)
+
+        if (!"com.taptap".equals(data.optString("app_id", ""))) {
+            Toast.makeText(context, "Data not from Spark app", Toast.LENGTH_SHORT).show()
+            return null
+        }
+
+        Toast.makeText(context, "Profile received via $source", Toast.LENGTH_SHORT).show()
+
+        // Create User object from JSON
+        User(
+            userId = data.optString("userId", ""),
+            createdAt = data.optLong("createdAt", 0),
+            lastSeen = data.optString("lastSeen", ""),
+            fullName = data.optString("fullName", ""),
+            email = data.optString("email", ""),
+            phone = data.optString("phone", ""),
+            linkedIn = data.optString("linkedIn", ""),
+            github = data.optString("github", ""),
+            instagram = data.optString("instagram", ""),
+            website = data.optString("website", ""),
+            description = data.optString("description", ""),
+            location = data.optString("location", "")
+        )
+    } catch (e: Exception) {
+        Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
+    }
+}
+

@@ -33,10 +33,8 @@ google-services.json
 # Android Profiling
 *.hprof
 
-
-*.iml
+# Custom
 .gradle
-/local.properties
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -48,4 +46,3 @@ google-services.json
 /captures
 .externalNativeBuild
 .cxx
-local.properties
