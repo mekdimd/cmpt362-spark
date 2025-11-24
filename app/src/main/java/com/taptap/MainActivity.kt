@@ -279,6 +279,12 @@ fun MainScreenContent(
                 )
             }
 
+            composable(MainScreen.Map.route) {
+                MapScreen(
+                    connectionViewModel = connectionViewModel
+                )
+            }
+
             composable(MainScreen.Profile.route) {
                 ProfileScreen(
                     userViewModel = userViewModel
