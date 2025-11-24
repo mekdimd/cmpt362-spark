@@ -1,6 +1,5 @@
 package com.taptap.ui.home
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.nfc.NfcAdapter
@@ -41,7 +40,9 @@ import com.taptap.viewmodel.UserViewModel
 @Composable
 fun HomeScreen(
     userViewModel: UserViewModel,
-    nfcAdapter: NfcAdapter?
+    nfcAdapter: NfcAdapter?,
+    connectionViewModel: com.taptap.viewmodel.ConnectionViewModel? = null,
+    onNavigateToDashboard: ((User) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currentUser by userViewModel.currentUser.observeAsState(User())
@@ -56,11 +57,15 @@ fun HomeScreen(
         }
     }
 
-    // QR Scanner
+    // QR Scanner - when a profile is scanned, navigate to dashboard
     val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             Toast.makeText(context, "Scanned: ${result.contents}", Toast.LENGTH_SHORT).show()
-            // Handle scanned profile - would need to pass to connection handling
+            val user = handleScannedQrCode(result.contents, context)
+            if (user != null) {
+                // Trigger navigation to dashboard with scanned user
+                onNavigateToDashboard?.invoke(user)
+            }
         }
     }
 
@@ -142,11 +147,12 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Divider()
+                Spacer(modifier = Modifier.height(24.dp))
+
+                HorizontalDivider()
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Contact Info
                 if (currentUser.email.isNotEmpty()) {
                     ProfileInfoRow(
                         icon = Icons.Default.Email,
@@ -266,11 +272,11 @@ fun HomeScreen(
             onClick = {
                 val options = ScanOptions().apply {
                     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                    setPrompt("Scan a Spark profile QR code")
+                    setPrompt("")
                     setCameraId(0)
                     setBeepEnabled(false)
                     setBarcodeImageEnabled(true)
-                    setOrientationLocked(false) // Allow rotation
+                    setOrientationLocked(true) // Lock orientation
                 }
                 qrScanner.launch(options)
             },
@@ -286,7 +292,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.width(12.dp))
             Text("Scan QR Code", style = MaterialTheme.typography.titleMedium)
         }
-    }
+        }
     }
 
     if (showQrDialog) {
@@ -413,3 +419,78 @@ private fun generateQrCode(userViewModel: UserViewModel): Bitmap {
     }
     return bitmap
 }
+
+private fun handleScannedQrCode(qrContent: String, context: android.content.Context): User? {
+    return if (qrContent.startsWith("myapp://")) {
+        val uri = android.net.Uri.parse(qrContent)
+        handleDeepLink(uri, context)
+    } else {
+        processReceivedData(qrContent, "QR Code", context)
+    }
+}
+
+private fun handleDeepLink(uri: android.net.Uri?, context: android.content.Context): User? {
+    uri ?: return null
+
+    return try {
+        val encodedData = uri.getQueryParameter("data")
+        if (encodedData != null) {
+            var paddedData = encodedData
+            val paddingNeeded = paddedData.length % 4
+            if (paddingNeeded > 0) {
+                paddedData += "====".substring(0, 4 - paddingNeeded)
+            }
+
+            val finalData = paddedData
+                .replace("_", "/")
+                .replace("-", "+")
+
+            val decoded = Base64.decode(finalData, Base64.DEFAULT)
+            val jsonString = String(decoded, java.nio.charset.StandardCharsets.UTF_8)
+            processReceivedData(jsonString, "QR Code", context)
+        } else {
+            Toast.makeText(context, "Invalid QR code data", Toast.LENGTH_SHORT).show()
+            null
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Invalid QR code data: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
+    }
+}
+
+private fun processReceivedData(
+    jsonString: String,
+    source: String,
+    context: android.content.Context
+): User? {
+    return try {
+        val data = org.json.JSONObject(jsonString)
+
+        if (!"com.taptap".equals(data.optString("app_id", ""))) {
+            Toast.makeText(context, "Data not from Spark app", Toast.LENGTH_SHORT).show()
+            return null
+        }
+
+        Toast.makeText(context, "Profile received via $source", Toast.LENGTH_SHORT).show()
+
+        // Create User object from JSON
+        User(
+            userId = data.optString("userId", ""),
+            createdAt = data.optLong("createdAt", 0),
+            lastSeen = data.optString("lastSeen", ""),
+            fullName = data.optString("fullName", ""),
+            email = data.optString("email", ""),
+            phone = data.optString("phone", ""),
+            linkedIn = data.optString("linkedIn", ""),
+            github = data.optString("github", ""),
+            instagram = data.optString("instagram", ""),
+            website = data.optString("website", ""),
+            description = data.optString("description", ""),
+            location = data.optString("location", "")
+        )
+    } catch (e: Exception) {
+        Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
+    }
+}
+
