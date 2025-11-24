@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.taptap.model.TapTapUser
+import com.taptap.model.User
 import com.taptap.viewmodel.UserViewModel
 
 @Composable
@@ -22,7 +22,7 @@ fun ProfileScreen(
     userViewModel: UserViewModel
 ) {
     val context = LocalContext.current
-    val currentUser by userViewModel.currentUser.observeAsState(TapTapUser())
+    val currentUser by userViewModel.currentUser.observeAsState(User())
 
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }

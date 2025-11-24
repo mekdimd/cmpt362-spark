@@ -2,7 +2,7 @@ package com.taptap.model
 
 import org.json.JSONObject
 
-data class TapTapUser(
+data class User(
     var userId: Long = 0,
     var createdAt: Long = 0L,
     var lastSeen: String = "",
@@ -30,9 +30,9 @@ data class TapTapUser(
     }
 
     companion object {
-        fun fromJson(jsonString: String): TapTapUser {
+        fun fromJson(jsonString: String): User {
             val json = JSONObject(jsonString)
-            return TapTapUser(
+            return User(
                 userId = json.optLong("userId", 0),
                 createdAt = json.optLong("createdAt", 0L),
                 lastSeen = json.optString("lastSeen", ""),

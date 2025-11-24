@@ -21,7 +21,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
-import com.taptap.model.TapTapUser
+import com.taptap.model.User
 import com.taptap.viewmodel.UserViewModel
 
 @Composable
@@ -30,7 +30,7 @@ fun HomeScreen(
     nfcAdapter: NfcAdapter?
 ) {
     val context = LocalContext.current
-    val currentUser by userViewModel.currentUser.observeAsState(TapTapUser())
+    val currentUser by userViewModel.currentUser.observeAsState(User())
     var showQrDialog by remember { mutableStateOf(false) }
 
     Column(
