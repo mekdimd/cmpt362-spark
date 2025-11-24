@@ -157,7 +157,11 @@ private fun handleNfcData(intent: Intent, context: android.content.Context): Str
     }
 }
 
-private fun processReceivedData(jsonString: String, source: String, context: android.content.Context): String {
+private fun processReceivedData(
+    jsonString: String,
+    source: String,
+    context: android.content.Context
+): String {
     return try {
         val data = JSONObject(jsonString)
 
@@ -176,7 +180,11 @@ private fun processReceivedData(jsonString: String, source: String, context: and
             📞 ${data.optString("phone", "N/A")}
             💼 ${data.optString("description", "N/A")}
             📍 ${data.optString("location", "N/A")}
-            ${if (data.optString("linkedIn", "").isNotEmpty()) "🔗 ${data.optString("linkedIn")}" else ""}
+            ${
+            if (data.optString("linkedIn", "")
+                    .isNotEmpty()
+            ) "🔗 ${data.optString("linkedIn")}" else ""
+        }
         """.trimIndent()
 
     } catch (e: Exception) {

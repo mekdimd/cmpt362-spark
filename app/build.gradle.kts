@@ -48,7 +48,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     // Material3 for XML themes (needed for Activity theme)
-    implementation("com.google.android.material:material:1.11.0")
+    implementation(libs.material.v1110)
 
     // Compose BOM
     implementation(platform(libs.androidx.compose.bom))

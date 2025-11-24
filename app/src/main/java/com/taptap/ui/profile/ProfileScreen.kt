@@ -120,10 +120,22 @@ fun ProfileScreen(
         Button(
             onClick = {
                 if (fullName.isEmpty()) {
-                    Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT)
+                        .show()
                 } else {
-                    userViewModel.saveUserProfile(fullName, phone, email, linkedIn, description, location)
-                    Toast.makeText(context, "Profile saved! Changes will show in Share tab", Toast.LENGTH_SHORT).show()
+                    userViewModel.saveUserProfile(
+                        fullName,
+                        phone,
+                        email,
+                        linkedIn,
+                        description,
+                        location
+                    )
+                    Toast.makeText(
+                        context,
+                        "Profile saved! Changes will show in Share tab",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             },
             modifier = Modifier.fillMaxWidth()
