@@ -28,6 +28,9 @@ fun ProfileScreen(
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var linkedIn by remember { mutableStateOf("") }
+    var github by remember { mutableStateOf("") }
+    var instagram by remember { mutableStateOf("") }
+    var website by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
 
@@ -36,6 +39,9 @@ fun ProfileScreen(
         email = currentUser.email
         phone = currentUser.phone
         linkedIn = currentUser.linkedIn
+        github = currentUser.github
+        instagram = currentUser.instagram
+        website = currentUser.website
         description = currentUser.description
         location = currentUser.location
     }
@@ -97,6 +103,36 @@ fun ProfileScreen(
         )
 
         OutlinedTextField(
+            value = github,
+            onValueChange = { github = it },
+            label = { Text("GitHub") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = instagram,
+            onValueChange = { instagram = it },
+            label = { Text("Instagram") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = website,
+            onValueChange = { website = it },
+            label = { Text("Website") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            singleLine = true
+        )
+
+        OutlinedTextField(
             value = description,
             onValueChange = { description = it },
             label = { Text("Description") },
@@ -128,6 +164,9 @@ fun ProfileScreen(
                         phone,
                         email,
                         linkedIn,
+                        github,
+                        instagram,
+                        website,
                         description,
                         location
                     )

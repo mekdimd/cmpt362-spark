@@ -10,9 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -20,10 +20,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.taptap.ui.auth.ForgotPasswordScreen
+import com.taptap.ui.auth.LoginScreen
+import com.taptap.ui.auth.RegisterScreen
 import com.taptap.ui.dashboard.DashboardScreen
 import com.taptap.ui.home.HomeScreen
 import com.taptap.ui.profile.ProfileScreen
 import com.taptap.ui.theme.TapTapTheme
+import com.taptap.viewmodel.AuthViewModel
+import com.taptap.viewmodel.ConnectionViewModel
 import com.taptap.viewmodel.UserViewModel
 import com.taptap.viewmodel.UserViewModelFactory
 
@@ -31,22 +36,28 @@ class MainActivity : ComponentActivity() {
 
     private var nfcAdapter: NfcAdapter? = null
     lateinit var userViewModel: UserViewModel
+    lateinit var authViewModel: AuthViewModel
+    lateinit var connectionViewModel: ConnectionViewModel
     private var currentIntent: MutableState<Intent?> = mutableStateOf(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize viewmodel first
+        // Initialize viewmodels
         val factory = UserViewModelFactory(applicationContext)
         userViewModel = ViewModelProvider(this, factory)[UserViewModel::class.java]
+        authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
+        connectionViewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         currentIntent.value = intent
 
         setContent {
             TapTapTheme {
-                MainScreen(
+                AppNavigation(
+                    authViewModel = authViewModel,
                     userViewModel = userViewModel,
+                    connectionViewModel = connectionViewModel,
                     nfcAdapter = nfcAdapter,
                     currentIntent = currentIntent.value
                 )
@@ -60,30 +71,140 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Home : Screen("home", "Home", Icons.Filled.Home)
-    object Dashboard : Screen("dashboard", "Dashboard", Icons.Filled.Info)
-    object Profile : Screen("profile", "Profile", Icons.Filled.Edit)
+sealed class Screen(val route: String) {
+    object Login : Screen("login")
+    object Register : Screen("register")
+    object ForgotPassword : Screen("forgot_password")
+    object Main : Screen("main")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+sealed class MainScreen(val route: String, val title: String, val icon: ImageVector) {
+    object Home : MainScreen("home", "Home", Icons.Filled.Home)
+    object Dashboard : MainScreen("dashboard", "Dashboard", Icons.Filled.Info)
+    object Profile : MainScreen("profile", "Profile", Icons.Filled.Edit)
+}
+
 @Composable
-fun MainScreen(
+fun AppNavigation(
+    authViewModel: AuthViewModel,
     userViewModel: UserViewModel,
+    connectionViewModel: ConnectionViewModel,
     nfcAdapter: NfcAdapter?,
     currentIntent: Intent?
 ) {
     val navController = rememberNavController()
-    val items = listOf(Screen.Home, Screen.Dashboard, Screen.Profile)
+    val isLoggedIn by authViewModel.isLoggedIn.observeAsState(false)
+    val currentUser by authViewModel.currentUser.observeAsState()
+
+    // Determine start destination based on auth state
+    val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
+
+    // Initialize user profile when logged in
+    LaunchedEffect(currentUser) {
+        currentUser?.let { firebaseUser ->
+            userViewModel.initializeUserProfile(
+                userId = firebaseUser.uid,
+                email = firebaseUser.email ?: "",
+                displayName = firebaseUser.displayName ?: "User"
+            )
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        composable(Screen.Login.route) {
+            LoginScreen(
+                authViewModel = authViewModel,
+                onNavigateToRegister = {
+                    navController.navigate(Screen.Register.route)
+                },
+                onNavigateToForgotPassword = {
+                    navController.navigate(Screen.ForgotPassword.route)
+                },
+                onLoginSuccess = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                authViewModel = authViewModel,
+                onNavigateToLogin = {
+                    navController.popBackStack()
+                },
+                onRegisterSuccess = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.ForgotPassword.route) {
+            ForgotPasswordScreen(
+                authViewModel = authViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Main.route) {
+            MainScreenContent(
+                authViewModel = authViewModel,
+                userViewModel = userViewModel,
+                connectionViewModel = connectionViewModel,
+                nfcAdapter = nfcAdapter,
+                currentIntent = currentIntent,
+                onLogout = {
+                    userViewModel.clearUserData()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreenContent(
+    authViewModel: AuthViewModel,
+    userViewModel: UserViewModel,
+    connectionViewModel: ConnectionViewModel,
+    nfcAdapter: NfcAdapter?,
+    currentIntent: Intent?,
+    onLogout: () -> Unit
+) {
+    val navController = rememberNavController()
+    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Profile)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("TapTap") },
+                title = { Text("🔥 Spark") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                actions = {
+                    IconButton(onClick = {
+                        authViewModel.logoutUser()
+                        onLogout()
+                    }) {
+                        Icon(
+                            Icons.Filled.ExitToApp,
+                            contentDescription = "Logout",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
@@ -112,21 +233,22 @@ fun MainScreen(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = MainScreen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) {
+            composable(MainScreen.Home.route) {
                 HomeScreen(
                     userViewModel = userViewModel,
                     nfcAdapter = nfcAdapter
                 )
             }
-            composable(Screen.Dashboard.route) {
+            composable(MainScreen.Dashboard.route) {
                 DashboardScreen(
-                    intent = currentIntent
+                    intent = currentIntent,
+                    connectionViewModel = connectionViewModel
                 )
             }
-            composable(Screen.Profile.route) {
+            composable(MainScreen.Profile.route) {
                 ProfileScreen(
                     userViewModel = userViewModel
                 )

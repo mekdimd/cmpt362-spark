@@ -26,22 +26,9 @@ class UserRepository {
      */
     suspend fun saveUser(user: User): Result<Unit> {
         return try {
-            val userMap = hashMapOf(
-                "userId" to user.userId,
-                "createdAt" to user.createdAt,
-                "lastSeen" to user.lastSeen,
-                "fullName" to user.fullName,
-                "phone" to user.phone,
-                "email" to user.email,
-                "linkedIn" to user.linkedIn,
-                "description" to user.description,
-                "location" to user.location,
-                "updatedAt" to System.currentTimeMillis()
-            )
-
             usersCollection
-                .document(user.userId.toString())
-                .set(userMap, SetOptions.merge())
+                .document(user.userId)
+                .set(user.toMap(), SetOptions.merge())
                 .await()
 
             Log.d(TAG, "User saved successfully: ${user.userId}")
@@ -54,28 +41,18 @@ class UserRepository {
 
     /**
      * Retrieve a user from Firestore by userId
-     * @param userId The user ID to retrieve
+     * @param userId The user ID (Firebase Auth UID) to retrieve
      * @return Result with user or error
      */
-    suspend fun getUser(userId: Long): Result<User?> {
+    suspend fun getUser(userId: String): Result<User?> {
         return try {
             val document = usersCollection
-                .document(userId.toString())
+                .document(userId)
                 .get()
                 .await()
 
             if (document.exists()) {
-                val user = User(
-                    userId = document.getLong("userId") ?: 0,
-                    createdAt = document.getLong("createdAt") ?: 0L,
-                    lastSeen = document.getString("lastSeen") ?: "",
-                    fullName = document.getString("fullName") ?: "",
-                    phone = document.getString("phone") ?: "",
-                    email = document.getString("email") ?: "",
-                    linkedIn = document.getString("linkedIn") ?: "",
-                    description = document.getString("description") ?: "",
-                    location = document.getString("location") ?: ""
-                )
+                val user = User.fromMap(document.data as Map<String, Any>)
                 Log.d(TAG, "User retrieved successfully: $userId")
                 Result.success(user)
             } else {
@@ -90,13 +67,13 @@ class UserRepository {
 
     /**
      * Update user's last seen status
-     * @param userId The user ID
+     * @param userId The user ID (Firebase Auth UID)
      * @param lastSeen The last seen status
      */
-    suspend fun updateLastSeen(userId: Long, lastSeen: String): Result<Unit> {
+    suspend fun updateLastSeen(userId: String, lastSeen: String): Result<Unit> {
         return try {
             usersCollection
-                .document(userId.toString())
+                .document(userId)
                 .update("lastSeen", lastSeen, "updatedAt", System.currentTimeMillis())
                 .await()
 
@@ -110,12 +87,12 @@ class UserRepository {
 
     /**
      * Delete a user from Firestore
-     * @param userId The user ID to delete
+     * @param userId The user ID (Firebase Auth UID) to delete
      */
-    suspend fun deleteUser(userId: Long): Result<Unit> {
+    suspend fun deleteUser(userId: String): Result<Unit> {
         return try {
             usersCollection
-                .document(userId.toString())
+                .document(userId)
                 .delete()
                 .await()
 
@@ -136,17 +113,7 @@ class UserRepository {
             val snapshot = usersCollection.get().await()
             val users = snapshot.documents.mapNotNull { document ->
                 try {
-                    User(
-                        userId = document.getLong("userId") ?: 0,
-                        createdAt = document.getLong("createdAt") ?: 0L,
-                        lastSeen = document.getString("lastSeen") ?: "",
-                        fullName = document.getString("fullName") ?: "",
-                        phone = document.getString("phone") ?: "",
-                        email = document.getString("email") ?: "",
-                        linkedIn = document.getString("linkedIn") ?: "",
-                        description = document.getString("description") ?: "",
-                        location = document.getString("location") ?: ""
-                    )
+                    User.fromMap(document.data as Map<String, Any>)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing user document: ${document.id}", e)
                     null
@@ -155,7 +122,30 @@ class UserRepository {
             Log.d(TAG, "Retrieved ${users.size} users")
             Result.success(users)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting all users", e)
+            Log.e(TAG, "Error retrieving all users", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Update user profile fields
+     * @param userId The user ID
+     * @param updates Map of field names to values
+     */
+    suspend fun updateUserFields(userId: String, updates: Map<String, Any>): Result<Unit> {
+        return try {
+            val updateData = updates.toMutableMap()
+            updateData["updatedAt"] = System.currentTimeMillis()
+
+            usersCollection
+                .document(userId)
+                .update(updateData)
+                .await()
+
+            Log.d(TAG, "User fields updated for: $userId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating user fields", e)
             Result.failure(e)
         }
     }

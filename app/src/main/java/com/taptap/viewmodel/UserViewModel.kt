@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.taptap.model.User
 import com.taptap.repository.UserRepository
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ class UserViewModel(context: Context) : ViewModel() {
 
     private var sharedPreferences: SharedPreferences? = null
     private val userRepository = UserRepository()
+    private val auth = FirebaseAuth.getInstance()
 
     init {
         sharedPreferences = context.getSharedPreferences("user_profile", Context.MODE_PRIVATE)
@@ -31,24 +33,72 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     private fun loadUserFromStorage() {
-        // First try to load from local storage (SharedPreferences)
-        val savedUserJson = sharedPreferences?.getString("user_data", null)
-        if (savedUserJson != null && savedUserJson.isNotEmpty()) {
-            try {
-                val savedUser = User.fromJson(savedUserJson)
-                _currentUser.value = savedUser
-
-                // Then sync with Firestore in the background
-                syncWithFirestore(savedUser.userId)
-            } catch (e: Exception) {
-                createDefaultUser()
-            }
+        // Check if user is authenticated
+        val firebaseUser = auth.currentUser
+        if (firebaseUser != null) {
+            // User is logged in, sync with Firestore
+            syncWithFirestore(firebaseUser.uid)
         } else {
-            createDefaultUser()
+            // No authenticated user, try to load from local storage for demo purposes
+            // In production, you might want to force login instead
+            val savedUserJson = sharedPreferences?.getString("user_data", null)
+            if (savedUserJson != null && savedUserJson.isNotEmpty()) {
+                try {
+                    val savedUser = User.fromJson(savedUserJson)
+                    _currentUser.value = savedUser
+                } catch (e: Exception) {
+                    // If loading fails, we'll wait for authentication
+                    _errorMessage.value = "Please log in to continue"
+                }
+            }
         }
     }
 
-    private fun syncWithFirestore(userId: Long) {
+    /**
+     * Initialize user profile after authentication
+     * Should be called after successful login/registration
+     */
+    fun initializeUserProfile(userId: String, email: String, displayName: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+
+            // Try to fetch existing user profile from Firestore
+            userRepository.getUser(userId)
+                .onSuccess { firestoreUser ->
+                    if (firestoreUser != null) {
+                        // User profile exists, load it
+                        _currentUser.value = firestoreUser
+                        saveUserToLocalStorage(firestoreUser)
+                    } else {
+                        // Create new user profile
+                        val newUser = User(
+                            userId = userId,
+                            createdAt = System.currentTimeMillis(),
+                            lastSeen = "Online",
+                            fullName = displayName,
+                            email = email,
+                            phone = "",
+                            linkedIn = "",
+                            github = "",
+                            instagram = "",
+                            website = "",
+                            description = "",
+                            location = ""
+                        )
+                        _currentUser.value = newUser
+                        saveUserToLocalStorage(newUser)
+                        saveUserToFirestore(newUser)
+                    }
+                }
+                .onFailure { error ->
+                    _errorMessage.value = "Failed to load user profile: ${error.message}"
+                }
+
+            _isLoading.value = false
+        }
+    }
+
+    private fun syncWithFirestore(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
             userRepository.getUser(userId)
@@ -58,7 +108,7 @@ class UserViewModel(context: Context) : ViewModel() {
                         _currentUser.value = firestoreUser
                         saveUserToLocalStorage(firestoreUser)
                     } else {
-                        // User doesn't exist in Firestore, upload local user
+                        // User doesn't exist in Firestore, might need to create profile
                         _currentUser.value?.let { localUser ->
                             saveUserToFirestore(localUser)
                         }
@@ -69,25 +119,6 @@ class UserViewModel(context: Context) : ViewModel() {
                 }
             _isLoading.value = false
         }
-    }
-
-    private fun createDefaultUser() {
-        val defaultUser = User(
-            userId = System.currentTimeMillis(),
-            createdAt = System.currentTimeMillis(),
-            lastSeen = "Online",
-            fullName = "John Doe",
-            phone = "+1234567890",
-            email = "john@example.com",
-            linkedIn = "linkedin.com/in/johndoe",
-            description = "Software Developer",
-            location = "New York, USA"
-        )
-        _currentUser.value = defaultUser
-        saveUserToLocalStorage(defaultUser)
-
-        // Save to Firestore as well
-        saveUserToFirestore(defaultUser)
     }
 
     private fun saveUserToLocalStorage(user: User) {
@@ -121,6 +152,9 @@ class UserViewModel(context: Context) : ViewModel() {
         phone: String,
         email: String,
         linkedIn: String,
+        github: String,
+        instagram: String,
+        website: String,
         description: String,
         location: String
     ) {
@@ -131,6 +165,9 @@ class UserViewModel(context: Context) : ViewModel() {
                 phone = phone,
                 email = email,
                 linkedIn = linkedIn,
+                github = github,
+                instagram = instagram,
+                website = website,
                 description = description,
                 location = location
             )
@@ -173,6 +210,9 @@ class UserViewModel(context: Context) : ViewModel() {
         _errorMessage.value = null
     }
 
+    /**
+     * Get user profile as JSON for NFC/QR sharing
+     */
     fun getUserProfileJson(): JSONObject {
         val user = _currentUser.value
         if (user == null) {
@@ -188,11 +228,29 @@ class UserViewModel(context: Context) : ViewModel() {
         json.put("phone", user.phone)
         json.put("email", user.email)
         json.put("linkedIn", user.linkedIn)
+        json.put("github", user.github)
+        json.put("instagram", user.instagram)
+        json.put("website", user.website)
         json.put("description", user.description)
         json.put("location", user.location)
         json.put("timestamp", System.currentTimeMillis())
 
         return json
+    }
+
+    /**
+     * Clear local user data (for logout)
+     */
+    fun clearUserData() {
+        sharedPreferences?.edit()?.clear()?.apply()
+    }
+
+    /**
+     * Sign out the current user
+     */
+    fun signOut() {
+        auth.signOut()
+        clearUserData()
     }
 }
 
