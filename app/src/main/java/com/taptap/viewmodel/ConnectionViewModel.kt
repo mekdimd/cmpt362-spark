@@ -1,5 +1,6 @@
 package com.taptap.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -7,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.taptap.model.Connection
 import com.taptap.model.User
 import com.taptap.repository.ConnectionRepository
+import com.taptap.repository.UserRepository
 import kotlinx.coroutines.launch
 
 /**
@@ -16,6 +18,7 @@ import kotlinx.coroutines.launch
 class ConnectionViewModel : ViewModel() {
 
     private val connectionRepository = ConnectionRepository()
+    private val userRepository = UserRepository()
 
     private val _connections = MutableLiveData<List<Connection>>()
     val connections: LiveData<List<Connection>> = _connections
@@ -100,6 +103,18 @@ class ConnectionViewModel : ViewModel() {
             _isLoading.value = true
             _errorMessage.value = null
 
+            // Check if connection already exists
+            val existingConnections = _connections.value ?: emptyList()
+            val alreadyConnected = existingConnections.any {
+                it.connectedUserId == connectedUser.userId
+            }
+
+            if (alreadyConnected) {
+                _errorMessage.value = "You're already connected with ${connectedUser.fullName}"
+                _isLoading.value = false
+                return@launch
+            }
+
             val connection = Connection(
                 userId = userId,
                 connectedUserId = connectedUser.userId,
@@ -107,6 +122,9 @@ class ConnectionViewModel : ViewModel() {
                 connectedUserEmail = connectedUser.email,
                 connectedUserPhone = connectedUser.phone,
                 connectedUserLinkedIn = connectedUser.linkedIn,
+                connectedUserGithub = connectedUser.github,
+                connectedUserInstagram = connectedUser.instagram,
+                connectedUserWebsite = connectedUser.website,
                 connectedUserDescription = connectedUser.description,
                 connectedUserLocation = connectedUser.location,
                 timestamp = System.currentTimeMillis(),
@@ -114,11 +132,16 @@ class ConnectionViewModel : ViewModel() {
                 eventName = eventName,
                 eventLocation = eventLocation,
                 latitude = latitude,
-                longitude = longitude
+                longitude = longitude,
+                profileCachedAt = System.currentTimeMillis(),
+                lastProfileUpdate = connectedUser.createdAt
             )
 
             connectionRepository.saveConnection(connection)
                 .onSuccess { connectionId ->
+                    // Create reverse connection (bidirectional)
+                    createReverseConnection(connectedUser.userId, userId, connectionMethod)
+
                     _successMessage.value = "Connection saved successfully!"
                     // Reload connections
                     loadConnections(userId)
@@ -128,6 +151,44 @@ class ConnectionViewModel : ViewModel() {
                 }
 
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Create reverse connection for bidirectional relationship
+     */
+    private suspend fun createReverseConnection(
+        userId: String,
+        connectedUserId: String,
+        connectionMethod: String
+    ) {
+        try {
+            // Fetch the current user's profile to save in the reverse connection
+            userRepository.getUser(connectedUserId).onSuccess { currentUser ->
+                if (currentUser != null) {
+                    val reverseConnection = Connection(
+                        userId = userId,
+                        connectedUserId = connectedUserId,
+                        connectedUserName = currentUser.fullName,
+                        connectedUserEmail = currentUser.email,
+                        connectedUserPhone = currentUser.phone,
+                        connectedUserLinkedIn = currentUser.linkedIn,
+                        connectedUserGithub = currentUser.github,
+                        connectedUserInstagram = currentUser.instagram,
+                        connectedUserWebsite = currentUser.website,
+                        connectedUserDescription = currentUser.description,
+                        connectedUserLocation = currentUser.location,
+                        timestamp = System.currentTimeMillis(),
+                        connectionMethod = connectionMethod,
+                        profileCachedAt = System.currentTimeMillis(),
+                        lastProfileUpdate = currentUser.createdAt
+                    )
+                    connectionRepository.saveConnection(reverseConnection)
+                }
+            }
+        } catch (e: Exception) {
+            // Log but don't fail the main operation
+            Log.e("ConnectionViewModel", "Failed to create reverse connection", e)
         }
     }
 
@@ -278,6 +339,63 @@ class ConnectionViewModel : ViewModel() {
      */
     fun clearSuccess() {
         _successMessage.value = null
+    }
+
+    /**
+     * Refresh a connection's profile data from Firestore
+     * Fetches the latest user profile and updates the cached data
+     * @param connection The connection to refresh
+     */
+    fun refreshConnectionProfile(connection: Connection) {
+        viewModelScope.launch {
+            userRepository.getUser(connection.connectedUserId)
+                .onSuccess { user ->
+                    if (user != null) {
+                        // Update connection with fresh profile data
+                        connectionRepository.updateConnectionProfile(
+                            connection.connectionId,
+                            user.toMap()
+                        ).onSuccess {
+                            // Update local list with fresh data
+                            _connections.value = _connections.value?.map { conn ->
+                                if (conn.connectionId == connection.connectionId) {
+                                    conn.copy(
+                                        connectedUserName = user.fullName,
+                                        connectedUserEmail = user.email,
+                                        connectedUserPhone = user.phone,
+                                        connectedUserLinkedIn = user.linkedIn,
+                                        connectedUserGithub = user.github,
+                                        connectedUserInstagram = user.instagram,
+                                        connectedUserWebsite = user.website,
+                                        connectedUserDescription = user.description,
+                                        connectedUserLocation = user.location,
+                                        profileCachedAt = System.currentTimeMillis()
+                                    )
+                                } else {
+                                    conn
+                                }
+                            }
+                        }
+                    }
+                }
+                .onFailure { error ->
+                    _errorMessage.value = "Failed to refresh profile: ${error.message}"
+                }
+        }
+    }
+
+    /**
+     * Refresh all connections that need updating (cache older than 24 hours)
+     * @param userId The current user's ID
+     */
+    fun refreshStaleProfiles(userId: String) {
+        viewModelScope.launch {
+            val connections = _connections.value ?: return@launch
+
+            connections.filter { it.needsProfileRefresh() }.forEach { connection ->
+                refreshConnectionProfile(connection)
+            }
+        }
     }
 
     /**

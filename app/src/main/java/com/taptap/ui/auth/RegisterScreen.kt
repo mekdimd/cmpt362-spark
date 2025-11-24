@@ -228,10 +228,10 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Register button
-        Button(
+        FilledTonalButton(
             onClick = {
                 if (passwordMatchError) {
-                    return@Button
+                    return@FilledTonalButton
                 }
                 authViewModel.clearError()
                 authViewModel.registerUser(email, password, displayName)
@@ -246,7 +246,7 @@ fun RegisterScreen(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             } else {
                 Text("Create Account", style = MaterialTheme.typography.titleMedium)

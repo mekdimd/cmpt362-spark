@@ -245,5 +245,45 @@ class ConnectionRepository {
             Result.failure(e)
         }
     }
+
+    /**
+     * Update connection with fresh profile data from Firestore
+     * @param connectionId The connection ID
+     * @param userData Map of user profile fields to update
+     * @return Result with success or error
+     */
+    suspend fun updateConnectionProfile(
+        connectionId: String,
+        userData: Map<String, Any>
+    ): Result<Unit> {
+        return try {
+            val updateData = mutableMapOf<String, Any>(
+                "profileCachedAt" to System.currentTimeMillis()
+            )
+
+            // Map User fields to Connection fields
+            userData["fullName"]?.let { updateData["connectedUserName"] = it }
+            userData["email"]?.let { updateData["connectedUserEmail"] = it }
+            userData["phone"]?.let { updateData["connectedUserPhone"] = it }
+            userData["linkedIn"]?.let { updateData["connectedUserLinkedIn"] = it }
+            userData["github"]?.let { updateData["connectedUserGithub"] = it }
+            userData["instagram"]?.let { updateData["connectedUserInstagram"] = it }
+            userData["website"]?.let { updateData["connectedUserWebsite"] = it }
+            userData["description"]?.let { updateData["connectedUserDescription"] = it }
+            userData["location"]?.let { updateData["connectedUserLocation"] = it }
+            userData["updatedAt"]?.let { updateData["lastProfileUpdate"] = it }
+
+            connectionsCollection
+                .document(connectionId)
+                .update(updateData)
+                .await()
+
+            Log.d(TAG, "Connection profile updated: $connectionId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating connection profile", e)
+            Result.failure(e)
+        }
+    }
 }
 

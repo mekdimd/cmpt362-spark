@@ -8,9 +8,11 @@ import android.nfc.NfcAdapter
 import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,8 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.firebase.auth.FirebaseAuth
@@ -27,10 +31,12 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.taptap.model.Connection
 import com.taptap.model.User
+import com.taptap.ui.connection.ConnectionDetailScreen
 import com.taptap.viewmodel.ConnectionViewModel
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     intent: Intent?,
@@ -47,11 +53,14 @@ fun DashboardScreen(
     var showConfirmationDialog by remember { mutableStateOf(false) }
     var scannedUser by remember { mutableStateOf<User?>(null) }
     var scanMethod by remember { mutableStateOf("QR") }
+    var selectedConnection by remember { mutableStateOf<Connection?>(null) }
 
     // Load connections on screen load
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             connectionViewModel.loadConnections(currentUserId)
+            // Refresh stale profiles (older than 1 hour)
+            connectionViewModel.refreshStaleProfiles(currentUserId)
         }
     }
 
@@ -94,6 +103,22 @@ fun DashboardScreen(
         }
     }
 
+    // Show detail screen if connection selected
+    if (selectedConnection != null) {
+        ConnectionDetailScreen(
+            connection = selectedConnection!!,
+            onBack = { selectedConnection = null },
+            onRefresh = {
+                connectionViewModel.refreshConnectionProfile(selectedConnection!!)
+            },
+            onDelete = {
+                connectionViewModel.deleteConnection(selectedConnection!!.connectionId)
+                selectedConnection = null
+            }
+        )
+        return // Don't show list when detail is open
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -111,23 +136,36 @@ fun DashboardScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            Button(
-                onClick = {
-                    val options = ScanOptions().apply {
-                        setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                        setPrompt("Scan a QR code from Spark")
-                        setCameraId(0)
-                        setBeepEnabled(false)
-                        setBarcodeImageEnabled(true)
-                        setOrientationLocked(true)
-                        captureActivity = CaptureActivityPortrait::class.java
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Refresh button
+                IconButton(
+                    onClick = {
+                        connectionViewModel.loadConnections(currentUserId)
+                        connectionViewModel.refreshStaleProfiles(currentUserId)
                     }
-                    qrScanner.launch(options)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                 }
-            ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan QR")
+
+                // Scan button
+                FilledTonalButton(
+                    onClick = {
+                        val options = ScanOptions().apply {
+                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            setPrompt("Scan a QR code from Spark")
+                            setCameraId(0)
+                            setBeepEnabled(false)
+                            setBarcodeImageEnabled(true)
+                            setOrientationLocked(true)
+                            captureActivity = CaptureActivityPortrait::class.java
+                        }
+                        qrScanner.launch(options)
+                    }
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scan")
+                }
             }
         }
 
@@ -158,24 +196,34 @@ fun DashboardScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(32.dp)
                 ) {
-                    Icon(
-                        Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Surface(
+                        modifier = Modifier.size(120.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.PersonAdd,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                     Text(
                         text = "No connections yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Scan a QR code to add your first connection",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -186,75 +234,144 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(connections) { connection ->
-                    ConnectionCard(
+                    ConnectionSummaryCard(
                         connection = connection,
-                        onDelete = {
-                            connectionViewModel.deleteConnection(connection.connectionId)
-                        }
+                        onClick = { selectedConnection = connection }
                     )
                 }
             }
         }
-    }
 
-    // Confirmation Dialog
-    if (showConfirmationDialog && scannedUser != null) {
-        ConfirmConnectionDialog(
-            user = scannedUser!!,
-            scanMethod = scanMethod,
-            onConfirm = {
-                connectionViewModel.saveConnection(
-                    userId = currentUserId,
-                    connectedUser = scannedUser!!,
-                    connectionMethod = scanMethod
-                )
-                showConfirmationDialog = false
-                scannedUser = null
-            },
-            onDismiss = {
-                showConfirmationDialog = false
-                scannedUser = null
-            }
-        )
+        // Confirmation Dialog
+        if (showConfirmationDialog && scannedUser != null) {
+            ConfirmConnectionDialog(
+                user = scannedUser!!,
+                scanMethod = scanMethod,
+                onConfirm = {
+                    connectionViewModel.saveConnection(
+                        userId = currentUserId,
+                        connectedUser = scannedUser!!,
+                        connectionMethod = scanMethod
+                    )
+                    showConfirmationDialog = false
+                    scannedUser = null
+                },
+                onDismiss = {
+                    showConfirmationDialog = false
+                    scannedUser = null
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun ConnectionCard(
+fun ConnectionSummaryCard(
     connection: Connection,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { expanded = !expanded }
+        onClick = onClick,
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp,
+            hoveredElevation = 6.dp
+        )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Profile picture placeholder
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = connection.connectedUserName
+                        .split(" ")
+                        .mapNotNull { it.firstOrNull()?.uppercase() }
+                        .take(2)
+                        .joinToString(""),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Connection info
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = connection.connectedUserName.ifEmpty { "Unknown" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (connection.connectedUserDescription.isNotEmpty()) {
                     Text(
-                        text = connection.connectedUserName.ifEmpty { "Unknown" },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        text = connection.connectedUserDescription,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = connection.getFormattedDate(),
+                        text = connection.getRelativeTimeString(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
+                if (connection.connectedUserLocation.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = connection.connectedUserLocation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Badges column
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 // Method badge
                 Surface(
                     color = if (connection.connectionMethod == "NFC")
@@ -269,70 +386,23 @@ fun ConnectionCard(
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
-            }
 
-            // Expanded details
-            if (expanded) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (connection.connectedUserEmail.isNotEmpty()) {
-                    DetailRow(Icons.Default.Email, connection.connectedUserEmail)
-                }
-                if (connection.connectedUserPhone.isNotEmpty()) {
-                    DetailRow(Icons.Default.Phone, connection.connectedUserPhone)
-                }
-                if (connection.connectedUserLinkedIn.isNotEmpty()) {
-                    DetailRow(Icons.Default.Link, connection.connectedUserLinkedIn)
-                }
-                if (connection.connectedUserDescription.isNotEmpty()) {
-                    DetailRow(Icons.Default.Description, connection.connectedUserDescription)
-                }
-                if (connection.connectedUserLocation.isNotEmpty()) {
-                    DetailRow(Icons.Default.LocationOn, connection.connectedUserLocation)
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Delete button
-                OutlinedButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Delete Connection")
+                // Stale indicator
+                if (connection.needsProfileRefresh()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = "Update",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
                 }
             }
         }
-    }
-
-    // Delete confirmation dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Connection?") },
-            text = { Text("Are you sure you want to delete this connection with ${connection.connectedUserName}?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
@@ -367,10 +437,11 @@ fun ConfirmConnectionDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Card(
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -420,7 +491,16 @@ fun ConfirmConnectionDialog(
                             DetailRow(Icons.Default.Phone, user.phone)
                         }
                         if (user.linkedIn.isNotEmpty()) {
-                            DetailRow(Icons.Default.Link, user.linkedIn)
+                            DetailRow(Icons.Default.Link, "LinkedIn: ${user.linkedIn}")
+                        }
+                        if (user.github.isNotEmpty()) {
+                            DetailRow(Icons.Default.Code, "GitHub: ${user.github}")
+                        }
+                        if (user.instagram.isNotEmpty()) {
+                            DetailRow(Icons.Default.Photo, "Instagram: ${user.instagram}")
+                        }
+                        if (user.website.isNotEmpty()) {
+                            DetailRow(Icons.Default.Language, "Website: ${user.website}")
                         }
                         if (user.description.isNotEmpty()) {
                             DetailRow(Icons.Default.Description, user.description)
@@ -452,7 +532,7 @@ fun ConfirmConnectionDialog(
                     ) {
                         Text("Cancel")
                     }
-                    Button(
+                    FilledTonalButton(
                         onClick = onConfirm,
                         modifier = Modifier.weight(1f)
                     ) {

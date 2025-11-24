@@ -47,13 +47,11 @@ fun HomeScreen(
         )
 
         // User Info Card
-        Card(
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -77,7 +75,7 @@ fun HomeScreen(
 
         // Share Buttons
         if (nfcAdapter != null) {
-            Button(
+            FilledTonalButton(
                 onClick = {
                     if (!nfcAdapter.isEnabled) {
                         Toast.makeText(context, "Please enable NFC in settings", Toast.LENGTH_SHORT)
@@ -92,17 +90,20 @@ fun HomeScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(56.dp)
                     .padding(bottom = 8.dp)
             ) {
-                Text("Share via NFC")
+                Text("Share via NFC", style = MaterialTheme.typography.titleMedium)
             }
         }
 
         OutlinedButton(
             onClick = { showQrDialog = true },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
         ) {
-            Text("Generate QR Code")
+            Text("Generate QR Code", style = MaterialTheme.typography.titleMedium)
         }
     }
 

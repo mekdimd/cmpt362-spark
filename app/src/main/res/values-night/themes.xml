@@ -1,6 +1,12 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme for Compose with Material 3 -->
-    <style name="Theme.TapTap" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Base application theme for Compose -->
+    <style name="Theme.TapTap" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Compose handles theming, this is just for the Activity window -->
+    </style>
+
+    <!-- Custom theme for ZXing QR Scanner (overrides library's default) -->
+    <style name="zxing_CaptureTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
     </style>
 </resources>

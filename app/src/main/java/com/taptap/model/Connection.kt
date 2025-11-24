@@ -12,6 +12,9 @@ data class Connection(
     val connectedUserEmail: String = "",
     val connectedUserPhone: String = "",
     val connectedUserLinkedIn: String = "",
+    val connectedUserGithub: String = "",
+    val connectedUserInstagram: String = "",
+    val connectedUserWebsite: String = "",
     val connectedUserDescription: String = "",
     val connectedUserLocation: String = "",
     val timestamp: Long = System.currentTimeMillis(),
@@ -20,7 +23,9 @@ data class Connection(
     val eventLocation: String = "", // Where the connection happened
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
-    val notes: String = "" // User's personal notes about this connection
+    val notes: String = "", // User's personal notes about this connection
+    val profileCachedAt: Long = System.currentTimeMillis(), // When profile data was last synced
+    val lastProfileUpdate: Long = 0L // When the user's profile was last updated in Firestore
 ) {
     /**
      * Convert to map for Firestore
@@ -34,6 +39,9 @@ data class Connection(
             "connectedUserEmail" to connectedUserEmail,
             "connectedUserPhone" to connectedUserPhone,
             "connectedUserLinkedIn" to connectedUserLinkedIn,
+            "connectedUserGithub" to connectedUserGithub,
+            "connectedUserInstagram" to connectedUserInstagram,
+            "connectedUserWebsite" to connectedUserWebsite,
             "connectedUserDescription" to connectedUserDescription,
             "connectedUserLocation" to connectedUserLocation,
             "timestamp" to timestamp,
@@ -42,7 +50,9 @@ data class Connection(
             "eventLocation" to eventLocation,
             "latitude" to latitude,
             "longitude" to longitude,
-            "notes" to notes
+            "notes" to notes,
+            "profileCachedAt" to profileCachedAt,
+            "lastProfileUpdate" to lastProfileUpdate
         )
     }
 
@@ -59,6 +69,9 @@ data class Connection(
                 connectedUserEmail = map["connectedUserEmail"] as? String ?: "",
                 connectedUserPhone = map["connectedUserPhone"] as? String ?: "",
                 connectedUserLinkedIn = map["connectedUserLinkedIn"] as? String ?: "",
+                connectedUserGithub = map["connectedUserGithub"] as? String ?: "",
+                connectedUserInstagram = map["connectedUserInstagram"] as? String ?: "",
+                connectedUserWebsite = map["connectedUserWebsite"] as? String ?: "",
                 connectedUserDescription = map["connectedUserDescription"] as? String ?: "",
                 connectedUserLocation = map["connectedUserLocation"] as? String ?: "",
                 timestamp = map["timestamp"] as? Long ?: 0L,
@@ -67,7 +80,9 @@ data class Connection(
                 eventLocation = map["eventLocation"] as? String ?: "",
                 latitude = map["latitude"] as? Double ?: 0.0,
                 longitude = map["longitude"] as? Double ?: 0.0,
-                notes = map["notes"] as? String ?: ""
+                notes = map["notes"] as? String ?: "",
+                profileCachedAt = map["profileCachedAt"] as? Long ?: 0L,
+                lastProfileUpdate = map["lastProfileUpdate"] as? Long ?: 0L
             )
         }
     }
@@ -86,6 +101,44 @@ data class Connection(
     fun getFormattedDate(): String {
         val date = java.util.Date(timestamp)
         val format = java.text.SimpleDateFormat("MMM dd, yyyy HH:mm", java.util.Locale.getDefault())
+        return format.format(date)
+    }
+
+    /**
+     * Check if cached profile data needs refreshing
+     * Returns true if cache is older than 1 hour
+     */
+    fun needsProfileRefresh(): Boolean {
+        val oneHourInMillis = 60L * 60 * 1000 // 1 hour
+        return System.currentTimeMillis() - profileCachedAt > oneHourInMillis
+    }
+
+    /**
+     * Get relative time string (e.g., "Just now", "5 minutes ago", "Yesterday")
+     */
+    fun getRelativeTimeString(): String {
+        val diff = System.currentTimeMillis() - timestamp
+        val seconds = diff / 1000
+        val minutes = seconds / 60
+        val hours = minutes / 60
+        val days = hours / 24
+
+        return when {
+            seconds < 60 -> "Just now"
+            minutes < 60 -> "$minutes minute${if (minutes != 1L) "s" else ""} ago"
+            hours < 24 -> "$hours hour${if (hours != 1L) "s" else ""} ago"
+            days == 1L -> "Yesterday at ${getTimeString()}"
+            days < 7 -> "$days days ago"
+            else -> getFormattedDate()
+        }
+    }
+
+    /**
+     * Get just the time portion (HH:mm)
+     */
+    private fun getTimeString(): String {
+        val date = java.util.Date(timestamp)
+        val format = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
         return format.format(date)
     }
 }

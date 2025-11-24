@@ -153,7 +153,7 @@ fun ProfileScreen(
             singleLine = true
         )
 
-        Button(
+        FilledTonalButton(
             onClick = {
                 if (fullName.isEmpty()) {
                     Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT)
@@ -177,9 +177,11 @@ fun ProfileScreen(
                     ).show()
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
         ) {
-            Text("Save Profile")
+            Text("Save Profile", style = MaterialTheme.typography.titleMedium)
         }
     }
 }

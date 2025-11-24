@@ -164,7 +164,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Login button
-        Button(
+        FilledTonalButton(
             onClick = {
                 authViewModel.clearError()
                 authViewModel.loginUser(email, password)
@@ -177,7 +177,7 @@ fun LoginScreen(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             } else {
                 Text("Login", style = MaterialTheme.typography.titleMedium)
