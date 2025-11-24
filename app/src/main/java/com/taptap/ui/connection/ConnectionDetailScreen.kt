@@ -1,5 +1,7 @@
 package com.taptap.ui.connection
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -276,10 +278,39 @@ fun ContactInfoItem(
     label: String,
     value: String
 ) {
-    Card(
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        onClick = {
+            val intent = when (label) {
+                "Email" -> Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:$value")
+                }
+                "Phone" -> Intent(Intent.ACTION_DIAL).apply {
+                    data = Uri.parse("tel:$value")
+                }
+                "LinkedIn", "GitHub", "Instagram", "Website" -> Intent(Intent.ACTION_VIEW).apply {
+                    data = Uri.parse(if (value.startsWith("http")) value else "https://$value")
+                }
+                else -> null
+            }
+
+            intent?.let {
+                try {
+                    context.startActivity(it)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Could not open $label",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        },
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
         )
     ) {
         Row(

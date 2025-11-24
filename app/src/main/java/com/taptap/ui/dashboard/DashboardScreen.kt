@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -31,7 +32,6 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.taptap.model.Connection
 import com.taptap.model.User
-import com.taptap.ui.connection.ConnectionDetailScreen
 import com.taptap.viewmodel.ConnectionViewModel
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
@@ -40,7 +40,8 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun DashboardScreen(
     intent: Intent?,
-    connectionViewModel: ConnectionViewModel
+    connectionViewModel: ConnectionViewModel,
+    onNavigateToDetail: (String) -> Unit
 ) {
     val context = LocalContext.current
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -53,7 +54,7 @@ fun DashboardScreen(
     var showConfirmationDialog by remember { mutableStateOf(false) }
     var scannedUser by remember { mutableStateOf<User?>(null) }
     var scanMethod by remember { mutableStateOf("QR") }
-    var selectedConnection by remember { mutableStateOf<Connection?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // Load connections on screen load
     LaunchedEffect(currentUserId) {
@@ -103,146 +104,136 @@ fun DashboardScreen(
         }
     }
 
-    // Show detail screen if connection selected
-    if (selectedConnection != null) {
-        ConnectionDetailScreen(
-            connection = selectedConnection!!,
-            onBack = { selectedConnection = null },
-            onRefresh = {
-                connectionViewModel.refreshConnectionProfile(selectedConnection!!)
-            },
-            onDelete = {
-                connectionViewModel.deleteConnection(selectedConnection!!.connectionId)
-                selectedConnection = null
-            }
-        )
-        return // Don't show list when detail is open
+    // Handle refresh state
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            isRefreshing = false
+        }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Header with scan button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    Box(modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                connectionViewModel.loadConnections(currentUserId)
+                connectionViewModel.refreshStaleProfiles(currentUserId)
+            }
         ) {
-            Text(
-                text = "Connections",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Refresh button
-                IconButton(
-                    onClick = {
-                        connectionViewModel.loadConnections(currentUserId)
-                        connectionViewModel.refreshStaleProfiles(currentUserId)
-                    }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Header with scan button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                }
+                    Text(
+                        text = "Connections",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                // Scan button
-                FilledTonalButton(
-                    onClick = {
-                        val options = ScanOptions().apply {
-                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            setPrompt("Scan a QR code from Spark")
-                            setCameraId(0)
-                            setBeepEnabled(false)
-                            setBarcodeImageEnabled(true)
-                            setOrientationLocked(true)
-                            captureActivity = CaptureActivityPortrait::class.java
+                    // Scan button
+                    FilledTonalButton(
+                        onClick = {
+                            val options = ScanOptions().apply {
+                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                setPrompt("Scan a QR code from Spark")
+                                setCameraId(0)
+                                setBeepEnabled(false)
+                                setBarcodeImageEnabled(true)
+                                setOrientationLocked(true)
+                                captureActivity = CaptureActivityPortrait::class.java
+                            }
+                            qrScanner.launch(options)
                         }
-                        qrScanner.launch(options)
-                    }
-                ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Scan")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Connections count
-        Text(
-            text = "${connections.size} Connection${if (connections.size != 1) "s" else ""}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Loading indicator
-        if (isLoading && connections.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (connections.isEmpty()) {
-            // Empty state
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.size(120.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.PersonAdd,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Scan")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Connections count
+                Text(
+                    text = "${connections.size} Connection${if (connections.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                // Loading indicator
+                if (isLoading && connections.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                        } else if (connections.isEmpty()) {
+                    // Empty state
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(32.dp)
+                                ) {
+                            Surface(
+                                modifier = Modifier.size(120.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.PersonAdd,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "No connections yet",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Scan a QR code to add your first connection",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "No connections yet",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Scan a QR code to add your first connection",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else {
-            // Connections list
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(connections) { connection ->
-                    ConnectionSummaryCard(
-                        connection = connection,
-                        onClick = { selectedConnection = connection }
-                    )
+                        } else {
+                    // Connections list
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(connections) { connection ->
+                            ConnectionSummaryCard(
+                                connection = connection,
+                                onClick = { onNavigateToDetail(connection.connectionId) }
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // Confirmation Dialog
+        // Confirmation Dialog (outside PullToRefreshBox but inside Box)
         if (showConfirmationDialog && scannedUser != null) {
             ConfirmConnectionDialog(
                 user = scannedUser!!,

@@ -80,8 +80,11 @@ sealed class Screen(val route: String) {
 
 sealed class MainScreen(val route: String, val title: String, val icon: ImageVector) {
     object Home : MainScreen("home", "Home", Icons.Filled.Home)
-    object Dashboard : MainScreen("dashboard", "Dashboard", Icons.Filled.Info)
-    object Profile : MainScreen("profile", "Profile", Icons.Filled.Edit)
+    object Dashboard : MainScreen("dashboard", "Connections", Icons.Filled.People)
+    object Profile : MainScreen("profile", "Profile", Icons.Filled.AccountCircle)
+    object ConnectionDetail : MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
+        fun createRoute(connectionId: String) = "connection_detail/$connectionId"
+    }
 }
 
 @Composable
@@ -245,13 +248,34 @@ fun MainScreenContent(
             composable(MainScreen.Dashboard.route) {
                 DashboardScreen(
                     intent = currentIntent,
-                    connectionViewModel = connectionViewModel
+                    connectionViewModel = connectionViewModel,
+                    onNavigateToDetail = { connectionId ->
+                        navController.navigate(MainScreen.ConnectionDetail.createRoute(connectionId))
+                    }
                 )
             }
             composable(MainScreen.Profile.route) {
                 ProfileScreen(
                     userViewModel = userViewModel
                 )
+            }
+            composable(MainScreen.ConnectionDetail.route) { backStackEntry ->
+                val connectionId = backStackEntry.arguments?.getString("connectionId") ?: ""
+                val connection = connectionViewModel.connections.value?.find { it.connectionId == connectionId }
+
+                if (connection != null) {
+                    com.taptap.ui.connection.ConnectionDetailScreen(
+                        connection = connection,
+                        onBack = { navController.popBackStack() },
+                        onRefresh = {
+                            connectionViewModel.refreshConnectionProfile(connection)
+                        },
+                        onDelete = {
+                            connectionViewModel.deleteConnection(connection.connectionId)
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
         }
     }

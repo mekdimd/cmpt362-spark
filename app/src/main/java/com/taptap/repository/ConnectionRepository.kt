@@ -154,12 +154,46 @@ class ConnectionRepository {
      */
     suspend fun deleteConnection(connectionId: String): Result<Unit> {
         return try {
-            connectionsCollection
+            // First, get the connection to find the related user IDs
+            val connectionDoc = connectionsCollection
                 .document(connectionId)
-                .delete()
+                .get()
                 .await()
 
-            Log.d(TAG, "Connection deleted: $connectionId")
+            val connection = connectionDoc.data?.let { Connection.fromMap(it) }
+
+            if (connection != null) {
+                // Delete the current connection
+                connectionsCollection
+                    .document(connectionId)
+                    .delete()
+                    .await()
+
+                // Find and delete the reverse connection
+                // The reverse connection has userId = current connectedUserId
+                // and connectedUserId = current userId
+                val reverseConnections = connectionsCollection
+                    .whereEqualTo("userId", connection.connectedUserId)
+                    .whereEqualTo("connectedUserId", connection.userId)
+                    .get()
+                    .await()
+
+                // Delete all matching reverse connections
+                reverseConnections.documents.forEach { doc ->
+                    doc.reference.delete().await()
+                    Log.d(TAG, "Deleted reverse connection: ${doc.id}")
+                }
+
+                Log.d(TAG, "Connection deleted bidirectionally: $connectionId")
+            } else {
+                // If connection data not found, just delete the document
+                connectionsCollection
+                    .document(connectionId)
+                    .delete()
+                    .await()
+                Log.d(TAG, "Connection deleted (no reverse found): $connectionId")
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting connection", e)
