@@ -291,9 +291,7 @@ class ConnectionRepository {
         userData: Map<String, Any>
     ): Result<Unit> {
         return try {
-            val updateData = mutableMapOf<String, Any>(
-                "profileCachedAt" to System.currentTimeMillis()
-            )
+            val updateData = mutableMapOf<String, Any>()
 
             // Map User fields to Connection fields
             userData["fullName"]?.let { updateData["connectedUserName"] = it }
@@ -305,7 +303,6 @@ class ConnectionRepository {
             userData["website"]?.let { updateData["connectedUserWebsite"] = it }
             userData["description"]?.let { updateData["connectedUserDescription"] = it }
             userData["location"]?.let { updateData["connectedUserLocation"] = it }
-            userData["updatedAt"]?.let { updateData["lastProfileUpdate"] = it }
 
             connectionsCollection
                 .document(connectionId)

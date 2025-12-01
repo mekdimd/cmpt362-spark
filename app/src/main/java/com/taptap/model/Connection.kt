@@ -27,9 +27,7 @@ data class Connection(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
 
-    val notes: String = "", // User's personal notes about this connection
-    val profileCachedAt: Long = System.currentTimeMillis(), // When profile data was last synced
-    val lastProfileUpdate: Long = 0L, // When the user's profile was last updated in Firestore
+    val notes: String = "" // User's personal notes about this connection
 ) {
     /**
      * Convert to map for Firestore
@@ -54,9 +52,7 @@ data class Connection(
             "eventLocation" to eventLocation,
             "latitude" to latitude,
             "longitude" to longitude,
-            "notes" to notes,
-            "profileCachedAt" to profileCachedAt,
-            "lastProfileUpdate" to lastProfileUpdate
+            "notes" to notes
         )
     }
 
@@ -84,19 +80,9 @@ data class Connection(
                 eventLocation = map["eventLocation"] as? String ?: "",
                 latitude = map["latitude"] as? Double ?: 0.0,
                 longitude = map["longitude"] as? Double ?: 0.0,
-                notes = map["notes"] as? String ?: "",
-                profileCachedAt = map["profileCachedAt"] as? Long ?: 0L,
-                lastProfileUpdate = map["lastProfileUpdate"] as? Long ?: 0L
+                notes = map["notes"] as? String ?: ""
             )
         }
-    }
-
-    /**
-     * Check if connection is older than 2 months
-     */
-    fun isOlderThanTwoMonths(): Boolean {
-        val twoMonthsInMillis = 60L * 24 * 60 * 60 * 1000 // Approximately 2 months
-        return System.currentTimeMillis() - timestamp > twoMonthsInMillis
     }
 
     /**
@@ -108,14 +94,6 @@ data class Connection(
         return format.format(date)
     }
 
-    /**
-     * Check if cached profile data needs refreshing
-     * Returns true if cache is older than 1 hour
-     */
-    fun needsProfileRefresh(): Boolean {
-        val oneHourInMillis = 60L * 60 * 1000 // 1 hour
-        return System.currentTimeMillis() - profileCachedAt > oneHourInMillis
-    }
 
     /**
      * Get relative time string (e.g., "Just now", "5 minutes ago", "Yesterday")

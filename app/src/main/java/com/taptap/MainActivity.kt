@@ -5,6 +5,8 @@ import android.nfc.NfcAdapter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -122,7 +124,13 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        enterTransition = {
+            fadeIn(animationSpec = tween(200, easing = LinearEasing))
+        },
+        exitTransition = {
+            fadeOut(animationSpec = tween(200, easing = LinearEasing))
+        }
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
@@ -198,48 +206,65 @@ fun MainScreenContent(
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
 
+    // Track current route to hide bars on detail screen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBars = currentRoute != MainScreen.ConnectionDetail.route
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("🔥 Spark") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                actions = {
-                    IconButton(onClick = {
-                        authViewModel.logoutUser()
-                        onLogout()
-                    }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = "Logout",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
+            AnimatedVisibility(
+                visible = showBars,
+                enter = fadeIn(tween(50)),
+                exit = fadeOut(tween(50))
+            ) {
+                TopAppBar(
+                    title = { Text("Spark") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    actions = {
+                        IconButton(onClick = {
+                            authViewModel.logoutUser()
+                            onLogout()
+                        }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = "Logout",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
+            AnimatedVisibility(
+                visible = showBars,
+                enter = fadeIn(tween(50)),
+                exit = fadeOut(tween(50))
+            ) {
+                NavigationBar {
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentDestination = navBackStackEntry?.destination
 
-                items.forEach { screen ->
-                    NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
-                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                    items.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon, contentDescription = screen.title) },
+                            label = { Text(screen.title) },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -247,7 +272,19 @@ fun MainScreenContent(
         NavHost(
             navController = navController,
             startDestination = MainScreen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                fadeIn(animationSpec = tween(150, easing = LinearEasing))
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(100, easing = LinearEasing))
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(150, easing = LinearEasing))
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(100, easing = LinearEasing))
+            }
         ) {
             composable(MainScreen.Home.route) {
                 HomeScreen(

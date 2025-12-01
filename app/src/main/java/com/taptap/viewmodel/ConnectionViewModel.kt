@@ -48,7 +48,7 @@ class ConnectionViewModel : ViewModel() {
     }
 
     /**
-     * Load all connections for a user
+     * Load all connections for a user and sync with latest profile data
      * @param userId The user's Firebase Auth UID
      */
     fun loadConnections(userId: String) {
@@ -58,15 +58,55 @@ class ConnectionViewModel : ViewModel() {
 
             connectionRepository.getUserConnections(userId)
                 .onSuccess { connectionList ->
+                    // Display cached connections immediately for fast UI
                     _connections.value = connectionList
                     _connectionCount.value = connectionList.size
+
+                    // Then sync with fresh profile data in background
+                    syncConnectionProfiles(connectionList)
                 }
                 .onFailure { error ->
                     _errorMessage.value = "Failed to load connections: ${error.message}"
+                    _isLoading.value = false
                 }
-
-            _isLoading.value = false
         }
+    }
+
+    /**
+     * Sync connection profiles with fresh data from Firestore
+     * Updates each connection with the latest user profile data
+     */
+    private suspend fun syncConnectionProfiles(connectionList: List<Connection>) {
+        val updatedConnections = connectionList.map { connection ->
+            // Fetch fresh profile data for each connection
+            val userResult = userRepository.getUser(connection.connectedUserId, forceRefresh = true)
+            if (userResult.isSuccess && userResult.getOrNull() != null) {
+                val user = userResult.getOrNull()!!
+                // Update the connection in Firestore
+                connectionRepository.updateConnectionProfile(
+                    connection.connectionId,
+                    user.toMap()
+                )
+                // Return updated connection
+                connection.copy(
+                    connectedUserName = user.fullName,
+                    connectedUserEmail = user.email,
+                    connectedUserPhone = user.phone,
+                    connectedUserLinkedIn = user.linkedIn,
+                    connectedUserGithub = user.github,
+                    connectedUserInstagram = user.instagram,
+                    connectedUserWebsite = user.website,
+                    connectedUserDescription = user.description,
+                    connectedUserLocation = user.location
+                )
+            } else {
+                connection
+            }
+        }
+
+        // Update UI with synced data
+        _connections.value = updatedConnections
+        _isLoading.value = false
     }
 
     /**
@@ -148,9 +188,7 @@ class ConnectionViewModel : ViewModel() {
                     eventName = "", // You can set this based on context
                     eventLocation = eventLocation,
                     latitude = latitude,
-                    longitude = longitude,
-                    profileCachedAt = System.currentTimeMillis(),
-                    lastProfileUpdate = connectedUser.createdAt
+                    longitude = longitude
                 )
 
                 connectionRepository.saveConnection(connection)
@@ -226,9 +264,7 @@ class ConnectionViewModel : ViewModel() {
                 eventName = eventName,
                 eventLocation = eventLocation,
                 latitude = latitude,
-                longitude = longitude,
-                profileCachedAt = System.currentTimeMillis(),
-                lastProfileUpdate = connectedUser.createdAt
+                longitude = longitude
             )
 
             connectionRepository.saveConnection(connection)
@@ -273,9 +309,7 @@ class ConnectionViewModel : ViewModel() {
                         connectedUserDescription = currentUser.description,
                         connectedUserLocation = currentUser.location,
                         timestamp = System.currentTimeMillis(),
-                        connectionMethod = connectionMethod,
-                        profileCachedAt = System.currentTimeMillis(),
-                        lastProfileUpdate = currentUser.createdAt
+                        connectionMethod = connectionMethod
                     )
                     connectionRepository.saveConnection(reverseConnection)
                 }
@@ -442,7 +476,6 @@ class ConnectionViewModel : ViewModel() {
      */
     fun refreshConnectionProfile(connection: Connection) {
         viewModelScope.launch {
-            _isLoading.value = true
             userRepository.getUser(connection.connectedUserId, forceRefresh = true)
                 .onSuccess { user ->
                     if (user != null) {
@@ -463,42 +496,70 @@ class ConnectionViewModel : ViewModel() {
                                         connectedUserInstagram = user.instagram,
                                         connectedUserWebsite = user.website,
                                         connectedUserDescription = user.description,
-                                        connectedUserLocation = user.location,
-                                        profileCachedAt = System.currentTimeMillis()
+                                        connectedUserLocation = user.location
                                     )
                                 } else {
                                     conn
                                 }
                             }
-                            _successMessage.value = "Profile updated successfully"
-                            _isLoading.value = false
                         }.onFailure { error ->
                             _errorMessage.value = "Failed to update connection: ${error.message}"
-                            _isLoading.value = false
                         }
                     } else {
                         _errorMessage.value = "User profile not found"
-                        _isLoading.value = false
                     }
                 }
                 .onFailure { error ->
                     _errorMessage.value = "Failed to refresh profile: ${error.message}"
-                    _isLoading.value = false
                 }
         }
     }
 
     /**
-     * Refresh all connections that need updating (cache older than 24 hours)
+     * Refresh all connections' profile data from Firestore
      * @param userId The current user's ID
      */
-    fun refreshStaleProfiles(userId: String) {
+    fun refreshAllConnections(userId: String) {
         viewModelScope.launch {
-            val connections = _connections.value ?: return@launch
+            _isLoading.value = true
 
-            connections.filter { it.needsProfileRefresh() }.forEach { connection ->
-                refreshConnectionProfile(connection)
-            }
+            // Reload connections from Firestore with forceRefresh
+            connectionRepository.getUserConnections(userId)
+                .onSuccess { connectionList ->
+                    // For each connection, fetch the latest user profile
+                    val refreshedConnections = connectionList.map { connection ->
+                        val userResult = userRepository.getUser(connection.connectedUserId, forceRefresh = true)
+                        if (userResult.isSuccess && userResult.getOrNull() != null) {
+                            val user = userResult.getOrNull()!!
+                            // Update the connection in Firestore
+                            connectionRepository.updateConnectionProfile(
+                                connection.connectionId,
+                                user.toMap()
+                            )
+                            // Return updated connection
+                            connection.copy(
+                                connectedUserName = user.fullName,
+                                connectedUserEmail = user.email,
+                                connectedUserPhone = user.phone,
+                                connectedUserLinkedIn = user.linkedIn,
+                                connectedUserGithub = user.github,
+                                connectedUserInstagram = user.instagram,
+                                connectedUserWebsite = user.website,
+                                connectedUserDescription = user.description,
+                                connectedUserLocation = user.location
+                            )
+                        } else {
+                            connection
+                        }
+                    }
+
+                    _connections.value = refreshedConnections
+                }
+                .onFailure { error ->
+                    _errorMessage.value = "Failed to refresh connections: ${error.message}"
+                }
+
+            _isLoading.value = false
         }
     }
 

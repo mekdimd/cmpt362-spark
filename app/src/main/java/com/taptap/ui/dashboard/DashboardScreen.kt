@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -65,14 +67,24 @@ fun DashboardScreen(
     var scanMethod by remember { mutableStateOf("QR") }
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // Search and Sort states
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedSort by remember { mutableStateOf(SortOption.DATE) }
+    // Search and Sort states (persisted across navigation)
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedSort by rememberSaveable { mutableStateOf(SortOption.DATE) }
+
+    // Pull to refresh state
+    val pullToRefreshState = rememberPullToRefreshState()
 
     // Load connections on screen load
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             connectionViewModel.loadConnections(currentUserId)
+        }
+    }
+
+    // Stop refreshing when loading completes
+    LaunchedEffect(isLoading) {
+        if (!isLoading && isRefreshing) {
+            isRefreshing = false
         }
     }
 
@@ -139,8 +151,11 @@ fun DashboardScreen(
         } else {
             connections.filter { connection ->
                 connection.connectedUserName.contains(searchQuery, ignoreCase = true) ||
-                connection.connectedUserDescription.contains(searchQuery, ignoreCase = true) ||
-                connection.connectedUserLocation.contains(searchQuery, ignoreCase = true)
+                        connection.connectedUserDescription.contains(
+                            searchQuery,
+                            ignoreCase = true
+                        ) ||
+                        connection.connectedUserLocation.contains(searchQuery, ignoreCase = true)
             }
         }
 
@@ -154,10 +169,10 @@ fun DashboardScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
+            state = pullToRefreshState,
             onRefresh = {
                 isRefreshing = true
-                connectionViewModel.loadConnections(currentUserId)
-                connectionViewModel.refreshStaleProfiles(currentUserId)
+                connectionViewModel.refreshAllConnections(currentUserId)
             }
         ) {
             Column(
@@ -345,70 +360,84 @@ fun ExpressiveSortRow(
 ) {
     val scrollState = rememberScrollState()
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp)
-            .horizontalScroll(scrollState),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SortOption.entries.forEach { sortOption ->
-            val isSelected = selectedSort == sortOption
-            val label = when (sortOption) {
-                SortOption.DATE -> "Date"
-                SortOption.NAME -> "Name"
-                SortOption.LOCATION -> "Location"
-            }
-            val icon = when (sortOption) {
-                SortOption.DATE -> Icons.Default.CalendarToday
-                SortOption.NAME -> Icons.Default.SortByAlpha
-                SortOption.LOCATION -> Icons.Default.LocationOn
-            }
+        // "Sort By" label
+        Text(
+            text = "Sort By",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-            ElevatedFilterChip(
-                selected = isSelected,
-                onClick = { onSortChange(sortOption) },
-                label = {
-                    Text(
-                        text = label,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                elevation = FilterChipDefaults.elevatedFilterChipElevation(
-                    elevation = if (isSelected) 8.dp else 4.dp,
-                    pressedElevation = 10.dp
-                ),
-                colors = FilterChipDefaults.elevatedFilterChipColors(
-                    containerColor = if (isSelected)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surface,
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    labelColor = if (isSelected)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onSurface,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    iconColor = if (isSelected)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                border = if (!isSelected) FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = false,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant
-                ) else null
-            )
+        // Sort Options Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SortOption.entries.forEach { sortOption ->
+                val isSelected = selectedSort == sortOption
+                val label = when (sortOption) {
+                    SortOption.DATE -> "Date"
+                    SortOption.NAME -> "Name"
+                    SortOption.LOCATION -> "Location"
+                }
+                val icon = when (sortOption) {
+                    SortOption.DATE -> Icons.Default.CalendarToday
+                    SortOption.NAME -> Icons.Default.SortByAlpha
+                    SortOption.LOCATION -> Icons.Default.LocationOn
+                }
+
+                ElevatedFilterChip(
+                    selected = isSelected,
+                    onClick = { onSortChange(sortOption) },
+                    label = {
+                        Text(
+                            text = label,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    elevation = FilterChipDefaults.elevatedFilterChipElevation(
+                        elevation = if (isSelected) 8.dp else 4.dp,
+                        pressedElevation = 10.dp
+                    ),
+                    colors = FilterChipDefaults.elevatedFilterChipColors(
+                        containerColor = if (isSelected)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surface,
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        labelColor = if (isSelected)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurface,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        iconColor = if (isSelected)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    border = if (!isSelected) FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = false,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant
+                    ) else null
+                )
+            }
         }
     }
 }
@@ -428,9 +457,8 @@ fun ConnectionCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 6.dp,
-            pressedElevation = 10.dp,
-            hoveredElevation = 8.dp
+            defaultElevation = 4.dp,
+            pressedElevation = 2.dp
         ),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -564,33 +592,6 @@ fun ConnectionCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            // Stale Profile Indicator
-            if (connection.needsProfileRefresh()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Text(
-                            text = "Profile needs update",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
                 }
@@ -769,21 +770,6 @@ fun ConnectionSummaryCard(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall
                     )
-                }
-
-                // Stale indicator
-                if (connection.needsProfileRefresh()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text(
-                            text = "Update",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
                 }
             }
         }
