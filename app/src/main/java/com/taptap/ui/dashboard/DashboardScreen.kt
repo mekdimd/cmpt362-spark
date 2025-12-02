@@ -45,6 +45,11 @@ enum class SortOption {
     DATE, NAME, LOCATION
 }
 
+// Sort direction enum
+enum class SortDirection {
+    ASCENDING, DESCENDING
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -70,6 +75,7 @@ fun DashboardScreen(
     // Search and Sort states (persisted across navigation)
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedSort by rememberSaveable { mutableStateOf(SortOption.DATE) }
+    var sortDirection by rememberSaveable { mutableStateOf(SortDirection.DESCENDING) }
 
     // Pull to refresh state
     val pullToRefreshState = rememberPullToRefreshState()
@@ -145,7 +151,7 @@ fun DashboardScreen(
     }
 
     // Filter and sort connections
-    val filteredAndSortedConnections = remember(connections, searchQuery, selectedSort) {
+    val filteredAndSortedConnections = remember(connections, searchQuery, selectedSort, sortDirection) {
         val filtered = if (searchQuery.isEmpty()) {
             connections
         } else {
@@ -159,10 +165,17 @@ fun DashboardScreen(
             }
         }
 
-        when (selectedSort) {
-            SortOption.DATE -> filtered.sortedByDescending { it.timestamp }
+        val sorted = when (selectedSort) {
+            SortOption.DATE -> filtered.sortedBy { it.timestamp }
             SortOption.NAME -> filtered.sortedBy { it.connectedUserName }
             SortOption.LOCATION -> filtered.sortedBy { it.connectedUserLocation }
+        }
+
+        // Apply direction
+        if (sortDirection == SortDirection.DESCENDING) {
+            sorted.reversed()
+        } else {
+            sorted
         }
     }
 
@@ -199,7 +212,24 @@ fun DashboardScreen(
                 // Sort Chips Row
                 ExpressiveSortRow(
                     selectedSort = selectedSort,
-                    onSortChange = { selectedSort = it }
+                    sortDirection = sortDirection,
+                    onSortChange = { newSort ->
+                        if (newSort == selectedSort) {
+                            // Toggle direction if same option is clicked
+                            sortDirection = if (sortDirection == SortDirection.ASCENDING) {
+                                SortDirection.DESCENDING
+                            } else {
+                                SortDirection.ASCENDING
+                            }
+                        } else {
+                            // New option selected, set default direction based on the option
+                            selectedSort = newSort
+                            sortDirection = when (newSort) {
+                                SortOption.DATE -> SortDirection.DESCENDING // Newest first by default
+                                SortOption.NAME, SortOption.LOCATION -> SortDirection.ASCENDING // A-Z by default
+                            }
+                        }
+                    }
                 )
 
                 // Loading indicator
@@ -356,6 +386,7 @@ fun ConnectionsHeader(
 @Composable
 fun ExpressiveSortRow(
     selectedSort: SortOption,
+    sortDirection: SortDirection,
     onSortChange: (SortOption) -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -398,10 +429,29 @@ fun ExpressiveSortRow(
                     selected = isSelected,
                     onClick = { onSortChange(sortOption) },
                     label = {
-                        Text(
-                            text = label,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                            // Show direction indicator only for selected chip
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = if (sortDirection == SortDirection.ASCENDING)
+                                        Icons.Default.ArrowUpward
+                                    else
+                                        Icons.Default.ArrowDownward,
+                                    contentDescription = if (sortDirection == SortDirection.ASCENDING)
+                                        "Ascending"
+                                    else
+                                        "Descending",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                     },
                     leadingIcon = {
                         Icon(
