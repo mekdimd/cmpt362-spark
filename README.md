@@ -15,7 +15,6 @@ Your contacts are automatically organized and synced to the cloud.
 
 - **NFC Tap-to-Share** - Hold phones back-to-back to exchange profiles
 - **QR Code Scanning** - Generate and scan QR codes for your profile
-- **Proximity Detection** - Automatically discover nearby users via location
 - **Profile Management** - Customizable profiles with social links and bio
 - **Connection Dashboard** - View and manage all your connections
 - **Map View** - See where you met your connections
@@ -51,7 +50,7 @@ Unfortunately, you cannot test all features on emulators. Here are some tips:
 
 - Android 8.0+ (API 26+)
 - 2 NFC-enabled device (for tap-to-share)
-- Location permission (for proximity detection)
+- Location permission (for map view)
 - Internet connection (for cloud sync)
 
 ## Group Members
