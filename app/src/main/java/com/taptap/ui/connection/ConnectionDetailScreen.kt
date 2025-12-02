@@ -8,8 +8,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +30,16 @@ fun ConnectionDetailScreen(
     onDelete: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
+
+    // Auto-stop refreshing after delay
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            kotlinx.coroutines.delay(1500)
+            isRefreshing = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -34,13 +47,10 @@ fun ConnectionDetailScreen(
                 title = { Text(connection.connectedUserName.ifEmpty { "Connection" }) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, "Refresh Profile")
-                    }
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(Icons.Default.Delete, "Delete Connection")
                     }
@@ -48,197 +58,181 @@ fun ConnectionDetailScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                onRefresh()
+            },
+            state = pullToRefreshState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
         ) {
-            // Profile header
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Profile picture placeholder
-                Box(
+                // Profile header
+                Column(
                     modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = connection.connectedUserName
-                            .split(" ")
-                            .mapNotNull { it.firstOrNull()?.uppercase() }
-                            .take(2)
-                            .joinToString(""),
-                        style = MaterialTheme.typography.displayMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = connection.connectedUserName.ifEmpty { "Unknown" },
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                if (connection.connectedUserDescription.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = connection.connectedUserDescription,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Connection info
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Profile picture placeholder
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.CalendarToday,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Text(
-                            text = connection.getRelativeTimeString(),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text("•", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            text = connection.connectionMethod,
-                            style = MaterialTheme.typography.bodySmall
+                            text = connection.connectedUserName
+                                .split(" ")
+                                .mapNotNull { it.firstOrNull()?.uppercase() }
+                                .take(2)
+                                .joinToString(""),
+                            style = MaterialTheme.typography.displayMedium,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                }
 
-                // Stale indicator
-                if (connection.needsProfileRefresh()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = connection.connectedUserName.ifEmpty { "Unknown" },
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    if (connection.connectedUserDescription.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = connection.connectedUserDescription,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Connection info
                     Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        color = MaterialTheme.colorScheme.surface,
                         shape = MaterialTheme.shapes.small
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.Info,
+                                Icons.Default.CalendarToday,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "Profile may be outdated",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                text = connection.getRelativeTimeString(),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text("•", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = connection.connectionMethod,
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
                 }
-            }
 
-            // Contact details
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Contact Information",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                if (connection.connectedUserEmail.isNotEmpty()) {
-                    ContactInfoItem(
-                        icon = Icons.Default.Email,
-                        label = "Email",
-                        value = connection.connectedUserEmail
-                    )
-                }
-
-                if (connection.connectedUserPhone.isNotEmpty()) {
-                    ContactInfoItem(
-                        icon = Icons.Default.Phone,
-                        label = "Phone",
-                        value = connection.connectedUserPhone
-                    )
-                }
-
-                if (connection.connectedUserLocation.isNotEmpty()) {
-                    ContactInfoItem(
-                        icon = Icons.Default.LocationOn,
-                        label = "Location",
-                        value = connection.connectedUserLocation
-                    )
-                }
-
-                // Social media section
-                val hasSocialMedia = connection.connectedUserLinkedIn.isNotEmpty() ||
-                        connection.connectedUserGithub.isNotEmpty() ||
-                        connection.connectedUserInstagram.isNotEmpty() ||
-                        connection.connectedUserWebsite.isNotEmpty()
-
-                if (hasSocialMedia) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                // Contact details
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     Text(
-                        text = "Social Media",
+                        text = "Contact Information",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
 
-                    if (connection.connectedUserLinkedIn.isNotEmpty()) {
+                    if (connection.connectedUserEmail.isNotEmpty()) {
                         ContactInfoItem(
-                            icon = Icons.Default.Link,
-                            label = "LinkedIn",
-                            value = connection.connectedUserLinkedIn
+                            icon = Icons.Default.Email,
+                            label = "Email",
+                            value = connection.connectedUserEmail
                         )
                     }
 
-                    if (connection.connectedUserGithub.isNotEmpty()) {
+                    if (connection.connectedUserPhone.isNotEmpty()) {
                         ContactInfoItem(
-                            icon = Icons.Default.Code,
-                            label = "GitHub",
-                            value = connection.connectedUserGithub
+                            icon = Icons.Default.Phone,
+                            label = "Phone",
+                            value = connection.connectedUserPhone
                         )
                     }
 
-                    if (connection.connectedUserInstagram.isNotEmpty()) {
+                    if (connection.connectedUserLocation.isNotEmpty()) {
                         ContactInfoItem(
-                            icon = Icons.Default.Photo,
-                            label = "Instagram",
-                            value = connection.connectedUserInstagram
+                            icon = Icons.Default.LocationOn,
+                            label = "Location",
+                            value = connection.connectedUserLocation
                         )
                     }
 
-                    if (connection.connectedUserWebsite.isNotEmpty()) {
-                        ContactInfoItem(
-                            icon = Icons.Default.Language,
-                            label = "Website",
-                            value = connection.connectedUserWebsite
+                    // Social media section
+                    val hasSocialMedia = connection.connectedUserLinkedIn.isNotEmpty() ||
+                            connection.connectedUserGithub.isNotEmpty() ||
+                            connection.connectedUserInstagram.isNotEmpty() ||
+                            connection.connectedUserWebsite.isNotEmpty()
+
+                    if (hasSocialMedia) {
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Social Media",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
+
+                        if (connection.connectedUserLinkedIn.isNotEmpty()) {
+                            ContactInfoItem(
+                                icon = Icons.Default.Link,
+                                label = "LinkedIn",
+                                value = connection.connectedUserLinkedIn
+                            )
+                        }
+
+                        if (connection.connectedUserGithub.isNotEmpty()) {
+                            ContactInfoItem(
+                                icon = Icons.Default.Code,
+                                label = "GitHub",
+                                value = connection.connectedUserGithub
+                            )
+                        }
+
+                        if (connection.connectedUserInstagram.isNotEmpty()) {
+                            ContactInfoItem(
+                                icon = Icons.Default.Photo,
+                                label = "Instagram",
+                                value = connection.connectedUserInstagram
+                            )
+                        }
+
+                        if (connection.connectedUserWebsite.isNotEmpty()) {
+                            ContactInfoItem(
+                                icon = Icons.Default.Language,
+                                label = "Website",
+                                value = connection.connectedUserWebsite
+                            )
+                        }
                     }
                 }
             }
@@ -287,14 +281,17 @@ fun ContactInfoItem(
                 "Email" -> Intent(Intent.ACTION_SENDTO).apply {
                     data = Uri.parse("mailto:$value")
                 }
+
                 "Phone" -> Intent(Intent.ACTION_DIAL).apply {
                     data = Uri.parse("tel:$value")
                 }
+
                 "Location" -> Intent(Intent.ACTION_VIEW).apply {
                     // Open in Google Maps
                     data = Uri.parse("geo:0,0?q=${Uri.encode(value)}")
                     setPackage("com.google.android.apps.maps")
                 }
+
                 "LinkedIn", "GitHub", "Instagram", "Website" -> Intent(Intent.ACTION_VIEW).apply {
                     val url = if (value.startsWith("http")) value else "https://$value"
                     data = Uri.parse(url)
@@ -302,6 +299,7 @@ fun ContactInfoItem(
                     addCategory(Intent.CATEGORY_BROWSABLE)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
+
                 else -> null
             }
 
@@ -311,7 +309,7 @@ fun ContactInfoItem(
                     if (label == "Location") {
                         try {
                             context.startActivity(it)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             // If Google Maps not installed, open in any map app
                             val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
                                 data = Uri.parse("geo:0,0?q=${Uri.encode(value)}")

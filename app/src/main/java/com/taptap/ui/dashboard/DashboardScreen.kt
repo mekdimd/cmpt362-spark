@@ -8,14 +8,19 @@ import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -34,6 +39,16 @@ import com.taptap.model.User
 import com.taptap.viewmodel.ConnectionViewModel
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
+
+// Sort options enum
+enum class SortOption {
+    DATE, NAME, LOCATION
+}
+
+// Sort direction enum
+enum class SortDirection {
+    ASCENDING, DESCENDING
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +72,25 @@ fun DashboardScreen(
     var scanMethod by remember { mutableStateOf("QR") }
     var isRefreshing by remember { mutableStateOf(false) }
 
+    // Search and Sort states (persisted across navigation)
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedSort by rememberSaveable { mutableStateOf(SortOption.DATE) }
+    var sortDirection by rememberSaveable { mutableStateOf(SortDirection.DESCENDING) }
+
+    // Pull to refresh state
+    val pullToRefreshState = rememberPullToRefreshState()
+
     // Load connections on screen load
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             connectionViewModel.loadConnections(currentUserId)
+        }
+    }
+
+    // Stop refreshing when loading completes
+    LaunchedEffect(isLoading) {
+        if (!isLoading && isRefreshing) {
+            isRefreshing = false
         }
     }
 
@@ -120,62 +150,87 @@ fun DashboardScreen(
         }
     }
 
+    // Filter and sort connections
+    val filteredAndSortedConnections = remember(connections, searchQuery, selectedSort, sortDirection) {
+        val filtered = if (searchQuery.isEmpty()) {
+            connections
+        } else {
+            connections.filter { connection ->
+                connection.connectedUserName.contains(searchQuery, ignoreCase = true) ||
+                        connection.connectedUserDescription.contains(
+                            searchQuery,
+                            ignoreCase = true
+                        ) ||
+                        connection.connectedUserLocation.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        val sorted = when (selectedSort) {
+            SortOption.DATE -> filtered.sortedBy { it.timestamp }
+            SortOption.NAME -> filtered.sortedBy { it.connectedUserName }
+            SortOption.LOCATION -> filtered.sortedBy { it.connectedUserLocation }
+        }
+
+        // Apply direction
+        if (sortDirection == SortDirection.DESCENDING) {
+            sorted.reversed()
+        } else {
+            sorted
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
+            state = pullToRefreshState,
             onRefresh = {
                 isRefreshing = true
-                connectionViewModel.loadConnections(currentUserId)
-                connectionViewModel.refreshStaleProfiles(currentUserId)
+                connectionViewModel.refreshAllConnections(currentUserId)
             }
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
+                modifier = Modifier.fillMaxSize()
             ) {
-                // Header with scan button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Connections",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    // Scan button
-                    FilledTonalButton(
-                        onClick = {
-                            val options = ScanOptions().apply {
-                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                setPrompt("")
-                                setCameraId(0)
-                                setBeepEnabled(false)
-                                setBarcodeImageEnabled(true)
-                                setOrientationLocked(true)  // Lock orientation
-                            }
-                            qrScanner.launch(options)
+                // Custom Header Section
+                ConnectionsHeader(
+                    connectionCount = connections.size,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    onScanClick = {
+                        val options = ScanOptions().apply {
+                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            setPrompt("")
+                            setCameraId(0)
+                            setBeepEnabled(false)
+                            setBarcodeImageEnabled(true)
+                            setOrientationLocked(true)
                         }
-                    ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Scan")
+                        qrScanner.launch(options)
                     }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Connections count
-                Text(
-                    text = "${connections.size} Connection${if (connections.size != 1) "s" else ""}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // Sort Chips Row
+                ExpressiveSortRow(
+                    selectedSort = selectedSort,
+                    sortDirection = sortDirection,
+                    onSortChange = { newSort ->
+                        if (newSort == selectedSort) {
+                            // Toggle direction if same option is clicked
+                            sortDirection = if (sortDirection == SortDirection.ASCENDING) {
+                                SortDirection.DESCENDING
+                            } else {
+                                SortDirection.ASCENDING
+                            }
+                        } else {
+                            // New option selected, set default direction based on the option
+                            selectedSort = newSort
+                            sortDirection = when (newSort) {
+                                SortOption.DATE -> SortDirection.DESCENDING // Newest first by default
+                                SortOption.NAME, SortOption.LOCATION -> SortDirection.ASCENDING // A-Z by default
+                            }
+                        }
+                    }
+                )
 
                 // Loading indicator
                 if (isLoading && connections.isEmpty()) {
@@ -185,55 +240,26 @@ fun DashboardScreen(
                     ) {
                         CircularProgressIndicator()
                     }
-                } else if (connections.isEmpty()) {
+                } else if (filteredAndSortedConnections.isEmpty()) {
                     // Empty state
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(32.dp)
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(120.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.PersonAdd,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(64.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "No connections yet",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Scan a QR code to add your first connection",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    ConnectionsEmptyState(
+                        isSearching = searchQuery.isNotEmpty()
+                    )
                 } else {
                     // Connections list
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(connections) { connection ->
-                            ConnectionSummaryCard(
+                        items(
+                            items = filteredAndSortedConnections,
+                            key = { it.connectionId }
+                        ) { connection ->
+                            ConnectionCard(
                                 connection = connection,
-                                onClick = { onNavigateToDetail(connection.connectionId) }
+                                onConnectionClick = { onNavigateToDetail(connection.connectionId) },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -247,7 +273,6 @@ fun DashboardScreen(
                 user = scannedUser!!,
                 scanMethod = scanMethod,
                 onConfirm = {
-                    // Use the new method with location capture
                     connectionViewModel.saveConnectionWithLocation(
                         userId = currentUserId,
                         connectedUser = scannedUser!!,
@@ -261,6 +286,415 @@ fun DashboardScreen(
                     showConfirmationDialog = false
                     scannedUser = null
                 }
+            )
+        }
+    }
+}
+
+/**
+ * Custom Header Section with Search Bar
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConnectionsHeader(
+    connectionCount: Int,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onScanClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header Row with Title and Scan Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Connections",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "$connectionCount Connection${if (connectionCount != 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = onScanClick,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.QrCodeScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scan")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Search Bar with 100.dp corner radius
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp),
+                placeholder = { Text("Search connections...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(100.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                singleLine = true
+            )
+        }
+    }
+}
+
+/**
+ * Expressive Sort Row with Elevated Filter Chips
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExpressiveSortRow(
+    selectedSort: SortOption,
+    sortDirection: SortDirection,
+    onSortChange: (SortOption) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        // "Sort By" label
+        Text(
+            text = "Sort By",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Sort Options Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SortOption.entries.forEach { sortOption ->
+                val isSelected = selectedSort == sortOption
+                val label = when (sortOption) {
+                    SortOption.DATE -> "Date"
+                    SortOption.NAME -> "Name"
+                    SortOption.LOCATION -> "Location"
+                }
+                val icon = when (sortOption) {
+                    SortOption.DATE -> Icons.Default.CalendarToday
+                    SortOption.NAME -> Icons.Default.SortByAlpha
+                    SortOption.LOCATION -> Icons.Default.LocationOn
+                }
+
+                ElevatedFilterChip(
+                    selected = isSelected,
+                    onClick = { onSortChange(sortOption) },
+                    label = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                            // Show direction indicator only for selected chip
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = if (sortDirection == SortDirection.ASCENDING)
+                                        Icons.Default.ArrowUpward
+                                    else
+                                        Icons.Default.ArrowDownward,
+                                    contentDescription = if (sortDirection == SortDirection.ASCENDING)
+                                        "Ascending"
+                                    else
+                                        "Descending",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    elevation = FilterChipDefaults.elevatedFilterChipElevation(
+                        elevation = if (isSelected) 8.dp else 4.dp,
+                        pressedElevation = 10.dp
+                    ),
+                    colors = FilterChipDefaults.elevatedFilterChipColors(
+                        containerColor = if (isSelected)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surface,
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        labelColor = if (isSelected)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurface,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        iconColor = if (isSelected)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    border = if (!isSelected) FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = false,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant
+                    ) else null
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Material 3 Expressive Connection Card
+ * Large rounded corners (24.dp), clear layout with avatar, name, job title, date, and location
+ */
+@Composable
+fun ConnectionCard(
+    connection: Connection,
+    onConnectionClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ElevatedCard(
+        onClick = { onConnectionClick(connection.connectionId) },
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 2.dp
+        ),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Row 1: Avatar + Name & Job Title
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Large Circular Avatar
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shadowElevation = 4.dp
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = connection.connectedUserName
+                                .split(" ")
+                                .mapNotNull { it.firstOrNull()?.uppercase() }
+                                .take(2)
+                                .joinToString(""),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Name and Job Title Column
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = connection.connectedUserName.ifEmpty { "Unknown" },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    if (connection.connectedUserDescription.isNotEmpty()) {
+                        Text(
+                            text = connection.connectedUserDescription,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Connection Method Badge
+                Surface(
+                    color = if (connection.connectionMethod == "NFC")
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = connection.connectionMethod,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (connection.connectionMethod == "NFC")
+                            MaterialTheme.colorScheme.onTertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Row 2: Date and Location Icons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Date Icon + Text
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = connection.getRelativeTimeString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Location Icon + Text
+                if (connection.connectedUserLocation.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            text = connection.connectedUserLocation,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Empty State for Connections
+ */
+@Composable
+fun ConnectionsEmptyState(
+    isSearching: Boolean
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(120.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isSearching) Icons.Default.SearchOff else Icons.Default.PersonAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = if (isSearching) "No matching connections" else "No connections yet",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (isSearching)
+                    "Try adjusting your search query"
+                else
+                    "Scan a QR code to add your first connection",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -386,21 +820,6 @@ fun ConnectionSummaryCard(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall
                     )
-                }
-
-                // Stale indicator
-                if (connection.needsProfileRefresh()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text(
-                            text = "Update",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
                 }
             }
         }
