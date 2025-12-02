@@ -36,7 +36,6 @@ fun ProfileScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // Text Heading instead of TopAppBar
         Text(
             text = "Profile",
             style = MaterialTheme.typography.headlineLarge,
@@ -44,7 +43,6 @@ fun ProfileScreen(
             modifier = Modifier.padding(start = 24.dp, top = 56.dp, bottom = 16.dp)
         )
 
-        // Hero Profile Card (Airbnb-style)
         HeroProfileCard(
             user = currentUser,
             onClick = onNavigateToEditProfile,
@@ -53,7 +51,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Settings Title
         Text(
             text = "Settings",
             style = MaterialTheme.typography.headlineSmall,
@@ -63,7 +60,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Privacy Section
         SettingsSection(title = "Privacy") {
             SettingsSwitchRow(
                 icon = Icons.Default.LocationOn,
@@ -71,7 +67,7 @@ fun ProfileScreen(
                 subtitle = "Allow sharing location when exchanging contacts",
                 checked = settings.isLocationShared,
                 onCheckedChange = {
-                    android.util.Log.d("ProfileScreen", "📍 Location sharing toggled to: $it")
+                    android.util.Log.d("ProfileScreen", "Location sharing toggled to: $it")
                     userViewModel.toggleLocationSharing()
                 }
             )
@@ -79,7 +75,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Notifications Section
         SettingsSection(title = "Notifications") {
             SettingsSwitchRow(
                 icon = Icons.Default.Notifications,
@@ -93,7 +88,6 @@ fun ProfileScreen(
 
             SettingsDivider()
 
-            // Connection Notifications - Always visible, disabled when master is off
             SettingsSwitchRow(
                 icon = Icons.Default.PersonAdd,
                 title = "Connection Notifications",
@@ -109,7 +103,6 @@ fun ProfileScreen(
 
             SettingsDivider()
 
-            // Follow-up Reminders - Always visible, disabled when master is off
             SettingsSwitchRow(
                 icon = Icons.Default.Schedule,
                 title = "Follow-up Reminders",
@@ -117,14 +110,13 @@ fun ProfileScreen(
                 checked = settings.isFollowUpNotificationEnabled,
                 enabled = settings.isPushNotificationsEnabled,
                 onCheckedChange = {
-                    android.util.Log.d("ProfileScreen", "⏰ Follow-up Reminders toggled (enabled=${settings.isPushNotificationsEnabled})")
+                    android.util.Log.d("ProfileScreen", "Follow-up Reminders toggled (enabled=${settings.isPushNotificationsEnabled})")
                     if (settings.isPushNotificationsEnabled) {
                         userViewModel.updateFollowUpNotificationPreference(!settings.isFollowUpNotificationEnabled)
                     }
                 }
             )
 
-            // Only show timing controls if BOTH master AND follow-up are enabled
             val showTimingControls = settings.isPushNotificationsEnabled && settings.isFollowUpNotificationEnabled
 
             if (showTimingControls) {
@@ -145,7 +137,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Support Section
         SettingsSection(title = "Support") {
             SettingsRow(
                 icon = Icons.Default.Info,
@@ -193,7 +184,6 @@ fun HeroProfileCard(
                     .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar
                 Surface(
                     modifier = Modifier.size(72.dp),
                     shape = RoundedCornerShape(20.dp),
@@ -219,7 +209,6 @@ fun HeroProfileCard(
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Name and Email
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -457,18 +446,16 @@ fun FollowUpReminderSlider(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Slider
         Slider(
             value = currentDays.toFloat(),
             onValueChange = { onDaysChange(it.toInt()) },
             valueRange = 7f..90f,
-            steps = 82, // 83 values from 7 to 90
+            steps = 82,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 40.dp)
         )
 
-        // Range labels
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -504,11 +491,10 @@ fun FollowUpReminderConfig(
         selectedUnit
     ) { mutableStateOf(currentValue.toFloat()) }
 
-    // Define ranges based on unit
     val (minValue, maxValue, steps) = when (selectedUnit) {
-        "minutes" -> Triple(1f, 60f, 58) // 1-60 minutes
-        "days" -> Triple(1f, 90f, 88) // 1-90 days
-        "months" -> Triple(1f, 12f, 10) // 1-12 months
+        "minutes" -> Triple(1f, 60f, 58)
+        "days" -> Triple(1f, 90f, 88)
+        "months" -> Triple(1f, 12f, 10)
         else -> Triple(1f, 90f, 88)
     }
 
@@ -556,7 +542,6 @@ fun FollowUpReminderConfig(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Unit selector chips
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -568,7 +553,6 @@ fun FollowUpReminderConfig(
                     selected = selectedUnit == unit,
                     onClick = {
                         selectedUnit = unit
-                        // Reset slider to reasonable default for new unit
                         sliderValue = when (unit) {
                             "minutes" -> 5f
                             "days" -> 30f
@@ -589,7 +573,6 @@ fun FollowUpReminderConfig(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Slider
         Slider(
             value = sliderValue,
             onValueChange = {
@@ -603,7 +586,6 @@ fun FollowUpReminderConfig(
                 .padding(horizontal = 40.dp)
         )
 
-        // Range labels
         Row(
             modifier = Modifier
                 .fillMaxWidth()

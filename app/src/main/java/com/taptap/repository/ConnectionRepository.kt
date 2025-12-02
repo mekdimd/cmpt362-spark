@@ -154,7 +154,6 @@ class ConnectionRepository {
      */
     suspend fun deleteConnection(connectionId: String): Result<Unit> {
         return try {
-            // First, get the connection to find the related user IDs
             val connectionDoc = connectionsCollection
                 .document(connectionId)
                 .get()
@@ -163,22 +162,17 @@ class ConnectionRepository {
             val connection = connectionDoc.data?.let { Connection.fromMap(it) }
 
             if (connection != null) {
-                // Delete the current connection
                 connectionsCollection
                     .document(connectionId)
                     .delete()
                     .await()
 
-                // Find and delete the reverse connection
-                // The reverse connection has userId = current connectedUserId
-                // and connectedUserId = current userId
                 val reverseConnections = connectionsCollection
                     .whereEqualTo("userId", connection.connectedUserId)
                     .whereEqualTo("connectedUserId", connection.userId)
                     .get()
                     .await()
 
-                // Delete all matching reverse connections
                 reverseConnections.documents.forEach { doc ->
                     doc.reference.delete().await()
                     Log.d(TAG, "Deleted reverse connection: ${doc.id}")
@@ -186,7 +180,6 @@ class ConnectionRepository {
 
                 Log.d(TAG, "Connection deleted bidirectionally: $connectionId")
             } else {
-                // If connection data not found, just delete the document
                 connectionsCollection
                     .document(connectionId)
                     .delete()
@@ -262,8 +255,6 @@ class ConnectionRepository {
      */
     suspend fun searchConnections(userId: String, searchQuery: String): Result<List<Connection>> {
         return try {
-            // Note: This is a simple client-side search
-            // For better performance, consider using Algolia or similar
             val allConnections = getUserConnections(userId).getOrNull() ?: emptyList()
 
             val filtered = allConnections.filter { connection ->
@@ -293,7 +284,6 @@ class ConnectionRepository {
         return try {
             val updateData = mutableMapOf<String, Any>()
 
-            // Map User fields to Connection fields
             userData["fullName"]?.let { updateData["connectedUserName"] = it }
             userData["email"]?.let { updateData["connectedUserEmail"] = it }
             userData["phone"]?.let { updateData["connectedUserPhone"] = it }

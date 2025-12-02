@@ -7,9 +7,9 @@ import com.google.android.gms.maps.model.LatLng
  * Stores information about when and where users connected
  */
 data class Connection(
-    val connectionId: String = "", // Unique ID for this connection
-    val userId: String = "", // Current user's Firebase Auth UID
-    val connectedUserId: String = "", // Connected user's Firebase Auth UID
+    val connectionId: String = "",
+    val userId: String = "",
+    val connectedUserId: String = "",
     val connectedUserName: String = "",
     val connectedUserEmail: String = "",
     val connectedUserPhone: String = "",
@@ -17,14 +17,14 @@ data class Connection(
     val connectedUserLocation: String = "",
     val connectedUserSocialLinks: List<SocialLink> = emptyList(),
     val timestamp: Long = System.currentTimeMillis(),
-    val connectionMethod: String = "NFC", // NFC or QR
-    val eventName: String = "", // Optional event tag
+    val connectionMethod: String = "NFC",
+    val eventName: String = "",
 
-    val eventLocation: String = "", // Where the connection happened
+    val eventLocation: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
 
-    val notes: String = "" // User's personal notes about this connection
+    val notes: String = ""
 ) {
     /**
      * Convert to map for Firestore
@@ -55,7 +55,6 @@ data class Connection(
          * Create Connection from Firestore document
          */
         fun fromMap(map: Map<String, Any>): Connection {
-            // Parse social links if available
             val socialLinks = try {
                 (map["connectedUserSocialLinks"] as? List<*>)?.let { list ->
                     SocialLink.listFromMapList(list)

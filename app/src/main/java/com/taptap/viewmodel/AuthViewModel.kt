@@ -65,7 +65,6 @@ class AuthViewModel : ViewModel() {
                     _isLoggedIn.value = true
                     _successMessage.value = "Registration successful! Welcome, $displayName"
 
-                    // Send verification email
                     sendEmailVerification()
                 }
                 .onFailure { error ->
@@ -182,7 +181,7 @@ class AuthViewModel : ViewModel() {
             authRepository.updateEmail(newEmail)
                 .onSuccess {
                     _successMessage.value = "Email updated successfully"
-                    checkAuthStatus() // Refresh user data
+                    checkAuthStatus()
                 }
                 .onFailure { error ->
                     _errorMessage.value = getErrorMessage(error)

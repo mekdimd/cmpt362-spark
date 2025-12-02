@@ -54,7 +54,6 @@ class MainActivity : ComponentActivity() {
     private var currentIntent: MutableState<Intent?> = mutableStateOf(null)
     private lateinit var notificationHelper: NotificationHelper
 
-    // Notification permission launcher for Android 13+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -68,23 +67,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize viewmodels
         val factory = UserViewModelFactory(applicationContext)
         userViewModel = ViewModelProvider(this, factory)[UserViewModel::class.java]
         authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
         connectionViewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
 
-        // Initialize services
         connectionViewModel.initializeLocationService(this)
         notificationHelper = NotificationHelper(this)
 
-        // Request notification permission for Android 13+
         requestNotificationPermission()
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         currentIntent.value = intent
 
-        // Handle deep link from notification
         handleDeepLink(intent)
 
         setContent {
@@ -124,7 +119,6 @@ class MainActivity : ComponentActivity() {
         intent?.data?.let { uri ->
             Log.d("MainActivity", "Deep link received: $uri")
 
-            // Handle connection deep link: myapp://connection/{userId}
             if (uri.scheme == "myapp" && uri.host == "connection") {
                 val userId = uri.pathSegments.getOrNull(0)
                 val userName = intent.getStringExtra(NotificationHelper.EXTRA_USER_NAME)
@@ -132,16 +126,13 @@ class MainActivity : ComponentActivity() {
                 Log.d("MainActivity", "Opening connection for user: $userName (ID: $userId)")
 
                 if (userId != null) {
-                    // Find the connection with this user ID using lifecycleScope
                     lifecycleScope.launch {
                         try {
-                            // Load connections first if not loaded
                             val currentUserId = authViewModel.currentUser.value?.uid
                             if (currentUserId != null) {
                                 connectionViewModel.loadConnections(currentUserId)
                             }
 
-                            // Wait a bit for connections to load
                             delay(500)
 
                             val connections = connectionViewModel.connections.value ?: emptyList()
@@ -149,8 +140,6 @@ class MainActivity : ComponentActivity() {
 
                             if (connection != null) {
                                 Log.d("MainActivity", "Found connection ID: ${connection.connectionId}")
-                                // Store pending connection ID to navigate after UI is ready
-                                // You'll handle this in MainScreenContent
                             } else {
                                 Log.w("MainActivity", "Connection not found for user ID: $userId")
                             }
@@ -161,14 +150,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Handle NFC deep link: taptap://connect/{userId}
             if (uri.scheme == "taptap" && uri.host == "connect") {
                 val userId = uri.pathSegments.getOrNull(0)
                 Log.d("MainActivity", "NFC deep link - connecting with user: $userId")
 
                 if (userId != null) {
-                    // This will be handled in MainScreenContent
-                    // The currentIntent state will trigger navigation
                 }
             }
         }
@@ -207,10 +193,8 @@ fun AppNavigation(
     val isLoggedIn by authViewModel.isLoggedIn.observeAsState(false)
     val currentUser by authViewModel.currentUser.observeAsState()
 
-    // Determine start destination based on auth state
     val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
 
-    // Initialize user profile when logged in
     LaunchedEffect(currentUser) {
         currentUser?.let { firebaseUser ->
             userViewModel.initializeUserProfile(
@@ -298,38 +282,30 @@ fun MainScreenContent(
     val currentUser by authViewModel.currentUser.observeAsState()
     val connections by connectionViewModel.connections.observeAsState(emptyList())
 
-    // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
-    var pendingScanMethod by remember { mutableStateOf<String?>(null) } // Track scan method (NFC/QR)
+    var pendingScanMethod by remember { mutableStateOf<String?>(null) }
 
-    // Handle deep link navigation from notifications and NFC
     LaunchedEffect(currentIntent) {
         currentIntent?.data?.let { uri ->
-            // Handle notification connection deep link: myapp://connection/{userId}
             if (uri.scheme == "myapp" && uri.host == "connection") {
                 val userId = uri.pathSegments.getOrNull(0)
                 if (userId != null) {
-                    // Load connections if not already loaded
                     currentUser?.uid?.let { currentUserId ->
                         if (connections.isEmpty()) {
                             connectionViewModel.loadConnections(currentUserId)
                         }
 
-                        // Wait for connections to load
                         delay(500)
 
-                        // Find the connection
                         val connection = connectionViewModel.connections.value?.find {
                             it.connectedUserId == userId
                         }
 
                         if (connection != null) {
                             Log.d("MainScreenContent", "Navigating to connection: ${connection.connectionId}")
-                            // Navigate to the connection detail screen
                             navController.navigate(
                                 MainScreen.ConnectionDetail.createRoute(connection.connectionId)
                             ) {
-                                // Clear the back stack to dashboard
                                 popUpTo(MainScreen.Dashboard.route) {
                                     inclusive = false
                                 }
@@ -342,18 +318,15 @@ fun MainScreenContent(
                 }
             }
 
-            // Handle NFC deep link: taptap://connect/{userId}
             if (uri.scheme == "taptap" && uri.host == "connect") {
                 val userId = uri.pathSegments.getOrNull(0)
                 if (userId != null) {
                     Log.d("MainScreenContent", "NFC tap detected - userId: $userId")
 
                     currentUser?.uid?.let { currentUserId ->
-                        // Load user profile and potentially create connection
                         userViewModel.getUserFromFirestore(userId) { user ->
                             if (user != null) {
                                 pendingScannedUser = user
-                                // Navigate to Dashboard where the user can confirm the connection
                                 navController.navigate(MainScreen.Dashboard.route) {
                                     popUpTo(MainScreen.Home.route) {
                                         inclusive = false
@@ -370,7 +343,6 @@ fun MainScreenContent(
         }
     }
 
-    // Check if we're on the detail screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val isDetailScreen = currentRoute?.startsWith("connection_detail") == true
@@ -410,34 +382,29 @@ fun MainScreenContent(
                         label = { Text(screen.title) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
-                            Log.d("MainActivity", "═══ Bottom Nav Clicked: ${screen.title} ═══")
+                            Log.d("MainActivity", "Bottom Nav Clicked: ${screen.title}")
                             Log.d("MainActivity", "Current destination: ${currentDestination?.route}")
                             Log.d("MainActivity", "Target route: ${screen.route}")
 
-                            // If already on this screen, do nothing
                             val isCurrentScreen = currentDestination?.route == screen.route
                             Log.d("MainActivity", "Is current screen: $isCurrentScreen")
 
                             if (isCurrentScreen) {
-                                Log.d("MainActivity", "→ Already on this screen, ignoring click")
+                                Log.d("MainActivity", "Already on this screen, ignoring click")
                             } else {
-                                Log.d("MainActivity", "→ Navigating to new screen")
-                                // Simple navigation - pop everything except start, then navigate
+                                Log.d("MainActivity", "Navigating to new screen")
                                 try {
                                     navController.navigate(screen.route) {
-                                        // Pop up to the start destination (Home)
                                         popUpTo(MainScreen.Home.route) {
-                                            // Don't pop Home itself
                                             inclusive = false
                                             saveState = false
                                         }
-                                        // Avoid multiple copies
                                         launchSingleTop = true
                                         restoreState = false
                                     }
-                                    Log.d("MainActivity", "✓ Navigation completed successfully")
+                                    Log.d("MainActivity", "Navigation completed successfully")
                                 } catch (e: Exception) {
-                                    Log.e("MainActivity", "✗ Navigation failed", e)
+                                    Log.e("MainActivity", "Navigation failed", e)
                                 }
                             }
                         }
@@ -457,7 +424,6 @@ fun MainScreenContent(
                         userViewModel = userViewModel,
                         nfcAdapter = nfcAdapter,
                         onNavigateToDashboard = { scannedUser, scanMethod ->
-                            // Store the scanned user and scan method, then navigate to dashboard
                             pendingScannedUser = scannedUser
                             pendingScanMethod = scanMethod
                             Log.d("MainActivity", "Navigating to Dashboard with user: ${scannedUser.fullName}, method: $scanMethod")
@@ -480,9 +446,8 @@ fun MainScreenContent(
                             )
                         },
                         scannedUserFromHome = pendingScannedUser,
-                        scanMethodFromHome = pendingScanMethod, // Pass the scan method
+                        scanMethodFromHome = pendingScanMethod,
                         onScannedUserHandled = {
-                            // Clear the pending scanned user and method after they've been handled
                             pendingScannedUser = null
                             pendingScanMethod = null
                         }

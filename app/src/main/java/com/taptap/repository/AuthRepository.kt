@@ -49,7 +49,6 @@ class AuthRepository {
             val user = result.user
 
             if (user != null) {
-                // Set display name
                 val profileUpdates = UserProfileChangeRequest.Builder()
                     .setDisplayName(displayName)
                     .build()

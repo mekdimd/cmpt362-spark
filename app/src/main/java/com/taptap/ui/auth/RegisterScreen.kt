@@ -46,7 +46,6 @@ fun RegisterScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
-    // Navigate on successful registration
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             onRegisterSuccess()
@@ -61,7 +60,6 @@ fun RegisterScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // App Title
         Text(
             text = "🔥 Spark",
             style = MaterialTheme.typography.headlineLarge,
@@ -78,7 +76,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Error message
         errorMessage?.let { error ->
             Card(
                 modifier = Modifier
@@ -97,7 +94,6 @@ fun RegisterScreen(
             }
         }
 
-        // Display Name field
         OutlinedTextField(
             value = displayName,
             onValueChange = { displayName = it },
@@ -119,7 +115,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Email field
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -141,7 +136,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Password field
         OutlinedTextField(
             value = password,
             onValueChange = {
@@ -181,7 +175,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Confirm Password field
         OutlinedTextField(
             value = confirmPassword,
             onValueChange = {
@@ -227,7 +220,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Register button
         FilledTonalButton(
             onClick = {
                 if (passwordMatchError) {
@@ -255,7 +247,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Login link
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,

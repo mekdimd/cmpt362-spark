@@ -45,13 +45,11 @@ data class SocialLink(
              * Generate full URL from handle/username
              */
             fun generateUrl(platform: SocialPlatform, input: String): String {
-                // If input already starts with http/https, use it as-is
                 if (input.startsWith("http://") || input.startsWith("https://")) {
                     return input
                 }
 
 
-                // Clean up handle (remove @ if present for social platforms)
                 val cleanHandle = when (platform) {
                     INSTAGRAM, TWITTER, TIKTOK, YOUTUBE -> input.removePrefix("@")
                     else -> input

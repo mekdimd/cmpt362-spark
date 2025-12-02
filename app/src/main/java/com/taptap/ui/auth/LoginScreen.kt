@@ -1,5 +1,6 @@
 package com.taptap.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -12,11 +13,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.taptap.R
 import com.taptap.viewmodel.AuthViewModel
 
 @Composable
@@ -36,17 +41,14 @@ fun LoginScreen(
 
     val focusManager = LocalFocusManager.current
 
-    // Navigate on successful login
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             onLoginSuccess()
         }
     }
 
-    // Show error/success messages
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
-            // Error is shown in the UI
         }
     }
 
@@ -57,10 +59,20 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // App Title
+        Image(
+            painter = painterResource(id = R.drawable.spark_logo),
+            contentDescription = "Spark Logo",
+            modifier = Modifier.size(120.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
-            text = "🔥 Spark",
-            style = MaterialTheme.typography.headlineLarge,
+            text = "Spark",
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold
+            ),
             color = MaterialTheme.colorScheme.primary
         )
 
@@ -68,13 +80,14 @@ fun LoginScreen(
 
         Text(
             text = "Connect Instantly",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Error message
         errorMessage?.let { error ->
             Card(
                 modifier = Modifier
@@ -93,7 +106,6 @@ fun LoginScreen(
             }
         }
 
-        // Email field
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -115,7 +127,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Password field
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -152,7 +163,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Forgot password
         TextButton(
             onClick = onNavigateToForgotPassword,
             modifier = Modifier.align(Alignment.End),
@@ -163,7 +173,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Login button
         FilledTonalButton(
             onClick = {
                 authViewModel.clearError()
@@ -186,7 +195,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Register link
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically

@@ -33,7 +33,6 @@ fun ForgotPasswordScreen(
 
     val focusManager = LocalFocusManager.current
 
-    // Track when email is sent successfully
     LaunchedEffect(successMessage) {
         if (successMessage?.contains("reset email sent", ignoreCase = true) == true) {
             emailSent = true
@@ -61,7 +60,6 @@ fun ForgotPasswordScreen(
             verticalArrangement = Arrangement.Center
         ) {
             if (!emailSent) {
-                // Before sending email
                 Icon(
                     imageVector = Icons.Default.Email,
                     contentDescription = "Email",
@@ -88,7 +86,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Error message
                 errorMessage?.let { error ->
                     Card(
                         modifier = Modifier
@@ -107,7 +104,6 @@ fun ForgotPasswordScreen(
                     }
                 }
 
-                // Email field
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -132,7 +128,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Send button
                 Button(
                     onClick = {
                         authViewModel.clearError()
@@ -155,7 +150,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Back to login
                 TextButton(
                     onClick = onNavigateBack,
                     enabled = !isLoading
@@ -163,7 +157,6 @@ fun ForgotPasswordScreen(
                     Text("Back to Login")
                 }
             } else {
-                // After email sent successfully
                 Icon(
                     imageVector = Icons.Default.Email,
                     contentDescription = "Email sent",
@@ -226,7 +219,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Resend button
                 OutlinedButton(
                     onClick = {
                         emailSent = false
@@ -240,7 +232,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Back to login
                 Button(
                     onClick = onNavigateBack,
                     modifier = Modifier.fillMaxWidth()

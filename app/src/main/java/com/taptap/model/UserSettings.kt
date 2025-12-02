@@ -9,15 +9,14 @@ data class UserSettings(
     val userId: String = "",
     val isLocationShared: Boolean = true,
     val isPushNotificationsEnabled: Boolean = true,
-    val isConnectionNotificationEnabled: Boolean = true, // New: Toggle for immediate connection notifications
-    val isFollowUpNotificationEnabled: Boolean = true, // New: Toggle for follow-up reminders
-    val followUpReminderValue: Int = 30, // The numeric value (e.g., 30)
-    val followUpReminderUnit: String = "days" // The unit: "minutes", "days", or "months"
+    val isConnectionNotificationEnabled: Boolean = true,
+    val isFollowUpNotificationEnabled: Boolean = true,
+    val followUpReminderValue: Int = 30,
+    val followUpReminderUnit: String = "days"
 ) {
-    // Helper property for backward compatibility - converts to days
     val followUpReminderDays: Int
         get() = when (followUpReminderUnit) {
-            "minutes" -> 1 // Treat as 1 day minimum for day-based calculations
+            "minutes" -> 1
             "days" -> followUpReminderValue
             "months" -> followUpReminderValue * 30
             else -> followUpReminderValue
@@ -31,7 +30,7 @@ data class UserSettings(
             "isFollowUpNotificationEnabled" to isFollowUpNotificationEnabled,
             "followUpReminderValue" to followUpReminderValue,
             "followUpReminderUnit" to followUpReminderUnit,
-            "followUpReminderDays" to followUpReminderDays, // For backward compatibility
+            "followUpReminderDays" to followUpReminderDays,
             "updatedAt" to System.currentTimeMillis()
         )
     }
@@ -58,7 +57,7 @@ data class UserSettings(
                 isConnectionNotificationEnabled = map["isConnectionNotificationEnabled"] as? Boolean ?: true,
                 isFollowUpNotificationEnabled = map["isFollowUpNotificationEnabled"] as? Boolean ?: true,
                 followUpReminderValue = (map["followUpReminderValue"] as? Long)?.toInt()
-                    ?: (map["followUpReminderDays"] as? Long)?.toInt() ?: 30, // Fallback to old field
+                    ?: (map["followUpReminderDays"] as? Long)?.toInt() ?: 30,
                 followUpReminderUnit = map["followUpReminderUnit"] as? String ?: "days"
             )
         }

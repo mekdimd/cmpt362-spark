@@ -49,7 +49,6 @@ class AnalyticsViewModel : ViewModel() {
     }
 
     init {
-        // Load data when ViewModel is created
         loadAnalyticsData()
     }
 
@@ -59,7 +58,6 @@ class AnalyticsViewModel : ViewModel() {
             _errorMessage.value = null
 
             try {
-                // Get current user ID
                 val currentUserId = auth.currentUser?.uid
                 if (currentUserId == null) {
                     _errorMessage.value = "User not logged in"
@@ -69,7 +67,6 @@ class AnalyticsViewModel : ViewModel() {
 
                 Log.d(TAG, "Loading analytics for user: $currentUserId")
 
-                // Load connections from repository
                 val result = connectionRepository.getUserConnections(currentUserId)
 
                 if (result.isSuccess) {
@@ -103,7 +100,6 @@ class AnalyticsViewModel : ViewModel() {
         val startOfMonth = now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate()
         val startOfWeek = now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toLocalDate()
 
-        // Calculate monthly connections
         val monthlyConnections = connections.count { connection ->
             val connectionDate = Instant.ofEpochMilli(connection.timestamp)
                 .atZone(ZoneId.systemDefault())
@@ -111,7 +107,6 @@ class AnalyticsViewModel : ViewModel() {
             !connectionDate.isBefore(startOfMonth)
         }
 
-        // Calculate weekly connections
         val weeklyConnections = connections.count { connection ->
             val connectionDate = Instant.ofEpochMilli(connection.timestamp)
                 .atZone(ZoneId.systemDefault())
@@ -121,11 +116,9 @@ class AnalyticsViewModel : ViewModel() {
 
         Log.d(TAG, "Monthly: $monthlyConnections, Weekly: $weeklyConnections")
 
-        // Connection method statistics
         val methodStats = connections.groupBy { it.connectionMethod }
             .mapValues { (_, conns) -> conns.size }
 
-        // Location statistics (use event location or connected user location)
         val locationStats = connections
             .mapNotNull { connection ->
                 val location = if (connection.eventLocation.isNotEmpty()) {
@@ -141,10 +134,9 @@ class AnalyticsViewModel : ViewModel() {
             .mapValues { (_, locs) -> locs.size }
             .toList()
             .sortedByDescending { it.second }
-            .take(5) // Top 5 locations
+            .take(5)
             .toMap()
 
-        // Monthly trend (last 6 months)
         val monthlyTrend = mutableMapOf<String, Int>()
         val monthFormatter = DateTimeFormatter.ofPattern("MMM")
 
@@ -165,14 +157,12 @@ class AnalyticsViewModel : ViewModel() {
             Log.d(TAG, "Month $monthName: $monthConnections connections")
         }
 
-        // Time of day statistics
         val timeStats = mutableMapOf<String, Int>()
         val timeSlots = listOf(
             "12AM", "3AM", "6AM", "9AM",
             "12PM", "3PM", "6PM", "9PM"
         )
 
-        // Initialize all time slots with 0
         timeSlots.forEach { slot ->
             timeStats[slot] = 0
         }
@@ -195,7 +185,6 @@ class AnalyticsViewModel : ViewModel() {
             timeStats[timeSlot] = timeStats.getOrDefault(timeSlot, 0) + 1
         }
 
-        // Most active day
         val dayStats = connections.groupBy { connection ->
             Instant.ofEpochMilli(connection.timestamp)
                 .atZone(ZoneId.systemDefault())
@@ -207,7 +196,6 @@ class AnalyticsViewModel : ViewModel() {
             java.util.Locale.getDefault()
         )
 
-        // Average connections per week
         val averageConnectionsPerWeek = if (connections.isNotEmpty()) {
             val firstConnection = connections.minByOrNull { it.timestamp }?.timestamp
             val lastConnection = connections.maxByOrNull { it.timestamp }?.timestamp
@@ -228,7 +216,6 @@ class AnalyticsViewModel : ViewModel() {
             0.0
         }
 
-        // Create analytics data
         val data = AnalyticsData(
             totalConnections = connections.size,
             monthlyConnections = monthlyConnections,

@@ -45,15 +45,12 @@ fun MapScreen(
     val connections by connectionViewModel.connections.observeAsState(emptyList())
     val coroutineScope = rememberCoroutineScope()
 
-    // Location service
     val locationService = remember { LocationService(context) }
 
-    // Location state
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
 
-    // Location permissions
     val locationPermissions = rememberMultiplePermissionsState(
         permissions = listOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -61,19 +58,16 @@ fun MapScreen(
         )
     )
 
-    // Camera position state - start with a safe default
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(LatLng(49.2827, -123.1207), 10f) // Vancouver
+        position = CameraPosition.fromLatLngZoom(LatLng(49.2827, -123.1207), 10f)
     }
 
-    // Request permissions when screen loads
     LaunchedEffect(Unit) {
         if (!locationPermissions.allPermissionsGranted) {
             locationPermissions.launchMultiplePermissionRequest()
         }
     }
 
-    // Get user location when permissions are granted
     LaunchedEffect(locationPermissions.allPermissionsGranted) {
         if (locationPermissions.allPermissionsGranted) {
             isLoadingLocation = true
@@ -88,12 +82,10 @@ fun MapScreen(
         }
     }
 
-    // Center map on user location or connections (safe version)
     LaunchedEffect(userLocation, connections) {
         safeCenterMapOnLocations(userLocation, connections, cameraPositionState)
     }
 
-    // Filter connections with valid location data
     val connectionsWithLocation = connections.filter {
         it.hasValidLocation()
     }
@@ -112,7 +104,6 @@ fun MapScreen(
                 compassEnabled = true
             )
         ) {
-            // Add markers for each connection
             connectionsWithLocation.forEach { connection ->
                 val connectionLatLng = LatLng(connection.latitude, connection.longitude)
 
@@ -124,14 +115,12 @@ fun MapScreen(
             }
         }
 
-        // Loading indicator
         if (isLoadingLocation) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center)
             )
         }
 
-        // Error message
         locationError?.let { error ->
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
@@ -148,7 +137,6 @@ fun MapScreen(
             }
         }
 
-        // Connection count badge
         if (connectionsWithLocation.isNotEmpty()) {
             Surface(
                 color = MaterialTheme.colorScheme.primary,
@@ -166,14 +154,12 @@ fun MapScreen(
             }
         }
 
-        // FABs container
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
             Column {
-                // Center on my location button
                 FloatingActionButton(
                     onClick = {
                         coroutineScope.launch {
@@ -196,10 +182,8 @@ fun MapScreen(
                     Icon(Icons.Default.MyLocation, "Center on my location")
                 }
 
-                // Refresh connections button
                 FloatingActionButton(
                     onClick = {
-                        // Refresh connections
                     }
                 ) {
                     Icon(Icons.Default.Refresh, "Refresh connections")
@@ -217,7 +201,6 @@ private suspend fun getCurrentUserLocation(locationService: LocationService): La
         val location = locationService.getCurrentLocation()
         location?.let { LatLng(it.latitude, it.longitude) }
     } catch (e: Exception) {
-        // Fallback to last known location or return null
         null
     }
 }
@@ -235,20 +218,17 @@ private suspend fun safeCenterMapOnLocations(
     val targetLocation = when {
         userLocation != null -> userLocation
         connectionsWithLocation.isNotEmpty() -> {
-            // Use the first connection's location
             LatLng(connectionsWithLocation.first().latitude, connectionsWithLocation.first().longitude)
         }
         else -> {
-            // Default location (Vancouver)
             LatLng(49.2827, -123.1207)
         }
     }
 
-    // Set appropriate zoom level
     val zoom = when {
-        connectionsWithLocation.isEmpty() -> 15f  // Close zoom for single location
-        connectionsWithLocation.size == 1 -> 12f  // Medium zoom for single connection
-        else -> 10f  // Wider zoom for multiple connections
+        connectionsWithLocation.isEmpty() -> 15f 
+        connectionsWithLocation.size == 1 -> 12f 
+        else -> 10f 
     }
 
     cameraPositionState.position = CameraPosition.fromLatLngZoom(targetLocation, zoom)

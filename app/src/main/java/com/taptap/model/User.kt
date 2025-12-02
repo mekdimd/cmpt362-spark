@@ -7,7 +7,7 @@ import org.json.JSONObject
  * Uses Firebase Auth UID as the primary identifier
  */
 data class User(
-    var userId: String = "", // Firebase Auth UID
+    var userId: String = "",
     var createdAt: Long = 0L,
     var lastSeen: String = "",
     var fullName: String = "",
@@ -59,7 +59,6 @@ data class User(
         fun fromJson(jsonString: String): User {
             val json = JSONObject(jsonString)
 
-            // Parse social links if available
             val socialLinks = try {
                 json.optJSONArray("socialLinks")?.let { array ->
                     SocialLink.listFromJsonArray(array)
@@ -86,7 +85,6 @@ data class User(
          * Create User from Firestore document
          */
         fun fromMap(map: Map<String, Any>): User {
-            // Parse social links if available
             val socialLinks = try {
                 (map["socialLinks"] as? List<*>)?.let { list ->
                     SocialLink.listFromMapList(list)

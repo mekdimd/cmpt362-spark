@@ -23,7 +23,6 @@ class LocationService(private val context: Context) {
      */
     suspend fun getCurrentLocation(): Location? {
         return try {
-            // Check location permissions
             val hasFineLocationPermission = androidx.core.content.ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_FINE_LOCATION
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -37,13 +36,11 @@ class LocationService(private val context: Context) {
                 return null
             }
 
-            // Create location request for high accuracy
             val locationRequest = LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY,
-                10000 // 10 seconds timeout
+                10000
             ).build()
 
-            // Get current location
             val locationResult = fusedLocationClient.getCurrentLocation(
                 locationRequest.priority,
                 null
@@ -53,7 +50,6 @@ class LocationService(private val context: Context) {
 
         } catch (e: Exception) {
             Log.e(TAG, "Error getting current location", e)
-            // Fallback to last known location
             getLastKnownLocation()
         }
     }
@@ -80,7 +76,6 @@ class LocationService(private val context: Context) {
 
             if (addresses?.isNotEmpty() == true) {
                 val address = addresses[0]
-                // Try to get a readable location name
                 val locality = address.locality
                 val adminArea = address.adminArea
                 val country = address.countryName

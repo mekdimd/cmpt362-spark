@@ -35,7 +35,6 @@ fun AnalyticsScreen(
     val analyticsData by analyticsViewModel.analyticsData.observeAsState()
     val errorMessage by analyticsViewModel.errorMessage.observeAsState()
 
-    // Auto-refresh when screen is focused
     LaunchedEffect(Unit) {
         analyticsViewModel.loadAnalyticsData()
     }
@@ -45,7 +44,6 @@ fun AnalyticsScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Header
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.fillMaxWidth()
@@ -75,7 +73,6 @@ fun AnalyticsScreen(
             }
         }
 
-        // Error message
         errorMessage?.let { error ->
             Card(
                 modifier = Modifier
@@ -182,7 +179,6 @@ fun AnalyticsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    // Summary Stats
                     SummaryStatsSection(
                         totalConnections = connections.size,
                         monthlyConnections = analyticsData?.monthlyConnections ?: 0,
@@ -191,7 +187,6 @@ fun AnalyticsScreen(
                 }
 
                 item {
-                    // Connection Methods
                     val methodStats = analyticsData?.connectionMethodStats ?: emptyMap()
                     if (methodStats.isNotEmpty()) {
                         ConnectionMethodsSection(methodStats = methodStats)
@@ -199,7 +194,6 @@ fun AnalyticsScreen(
                 }
 
                 item {
-                    // Top Locations
                     val locationStats = analyticsData?.locationStats ?: emptyMap()
                     if (locationStats.isNotEmpty()) {
                         TopLocationsSection(locationStats = locationStats)
@@ -207,7 +201,6 @@ fun AnalyticsScreen(
                 }
 
                 item {
-                    // Time Trends
                     val monthlyTrend = analyticsData?.monthlyTrend ?: emptyMap()
                     if (monthlyTrend.isNotEmpty()) {
                         MonthlyTrendSection(monthlyTrend = monthlyTrend)
@@ -215,7 +208,6 @@ fun AnalyticsScreen(
                 }
 
                 item {
-                    // Peak Connection Times
                     val timeStats = analyticsData?.timeOfDayStats ?: emptyMap()
                     if (timeStats.isNotEmpty()) {
                         PeakTimesSection(timeStats = timeStats)
@@ -223,7 +215,6 @@ fun AnalyticsScreen(
                 }
 
                 item {
-                    // Recent Activity
                     RecentConnectionsSection(connections = connections.take(5))
                 }
 
@@ -544,7 +535,6 @@ fun MonthlyTrendSection(monthlyTrend: Map<String, Int>) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom
                     ) {
-                        // Bar
                         val barHeight = if (maxValue > 0) (value.toFloat() / maxValue * 80).dp else 0.dp
                         Box(
                             modifier = Modifier
@@ -558,7 +548,6 @@ fun MonthlyTrendSection(monthlyTrend: Map<String, Int>) {
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Value
                         Text(
                             text = value.toString(),
                             style = MaterialTheme.typography.labelSmall
@@ -566,7 +555,6 @@ fun MonthlyTrendSection(monthlyTrend: Map<String, Int>) {
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Month label
                         Text(
                             text = month.take(3),
                             style = MaterialTheme.typography.labelSmall,
@@ -639,13 +627,11 @@ fun TimeSlotRow(timeSlot: String, count: Int, maxCount: Int) {
         )
         Spacer(modifier = Modifier.width(12.dp))
 
-        // Custom progress bar implementation
         Box(
             modifier = Modifier
                 .weight(1f)
                 .height(20.dp)
         ) {
-            // Background track
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -653,7 +639,6 @@ fun TimeSlotRow(timeSlot: String, count: Int, maxCount: Int) {
                     .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f))
             )
 
-            // Progress fill
             val progress = if (maxCount > 0) count.toFloat() / maxCount else 0f
             if (progress > 0) {
                 Box(
@@ -665,7 +650,6 @@ fun TimeSlotRow(timeSlot: String, count: Int, maxCount: Int) {
                 )
             }
 
-            // Count label
             Text(
                 text = count.toString(),
                 style = MaterialTheme.typography.labelSmall,

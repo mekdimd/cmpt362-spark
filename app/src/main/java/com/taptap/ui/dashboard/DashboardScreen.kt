@@ -40,12 +40,10 @@ import com.taptap.viewmodel.ConnectionViewModel
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 
-// Sort options enum
 enum class SortOption {
     DATE, NAME, LOCATION
 }
 
-// Sort direction enum
 enum class SortDirection {
     ASCENDING, DESCENDING
 }
@@ -57,7 +55,7 @@ fun DashboardScreen(
     connectionViewModel: ConnectionViewModel,
     onNavigateToDetail: (String) -> Unit,
     scannedUserFromHome: User? = null,
-    scanMethodFromHome: String? = null, // Added parameter to track scan method
+    scanMethodFromHome: String? = null,
     onScannedUserHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -73,39 +71,33 @@ fun DashboardScreen(
     var scanMethod by remember { mutableStateOf("QR") }
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // Search and Sort states (persisted across navigation)
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedSort by rememberSaveable { mutableStateOf(SortOption.DATE) }
     var sortDirection by rememberSaveable { mutableStateOf(SortDirection.DESCENDING) }
 
-    // Pull to refresh state
     val pullToRefreshState = rememberPullToRefreshState()
 
-    // Load connections on screen load
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             connectionViewModel.loadConnections(currentUserId)
         }
     }
 
-    // Stop refreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
 
-    // Handle scanned user from HomeScreen
     LaunchedEffect(scannedUserFromHome) {
         if (scannedUserFromHome != null) {
             scannedUser = scannedUserFromHome
-            scanMethod = scanMethodFromHome ?: "QR" // Use the passed method, default to QR if null
+            scanMethod = scanMethodFromHome ?: "QR"
             showConfirmationDialog = true
             onScannedUserHandled()
         }
     }
 
-    // Handle incoming intent (NFC or deep link)
     LaunchedEffect(intent) {
         intent?.let {
             val user = checkForIncomingData(it, context)
@@ -117,7 +109,6 @@ fun DashboardScreen(
         }
     }
 
-    // QR Scanner
     val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             val user = handleScannedQrCode(result.contents, context)
@@ -129,7 +120,6 @@ fun DashboardScreen(
         }
     }
 
-    // Show success message
     LaunchedEffect(successMessage) {
         successMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -137,21 +127,18 @@ fun DashboardScreen(
         }
     }
 
-    // Show error message
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
         }
     }
 
-    // Handle refresh state
     LaunchedEffect(isLoading) {
         if (!isLoading) {
             isRefreshing = false
         }
     }
 
-    // Filter and sort connections
     val filteredAndSortedConnections = remember(connections, searchQuery, selectedSort, sortDirection) {
         val filtered = if (searchQuery.isEmpty()) {
             connections
@@ -172,7 +159,6 @@ fun DashboardScreen(
             SortOption.LOCATION -> filtered.sortedBy { it.connectedUserLocation }
         }
 
-        // Apply direction
         if (sortDirection == SortDirection.DESCENDING) {
             sorted.reversed()
         } else {
@@ -192,7 +178,6 @@ fun DashboardScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Custom Header Section
                 ConnectionsHeader(
                     connectionCount = connections.size,
                     searchQuery = searchQuery,
@@ -210,30 +195,26 @@ fun DashboardScreen(
                     }
                 )
 
-                // Sort Chips Row
                 ExpressiveSortRow(
                     selectedSort = selectedSort,
                     sortDirection = sortDirection,
                     onSortChange = { newSort ->
                         if (newSort == selectedSort) {
-                            // Toggle direction if same option is clicked
                             sortDirection = if (sortDirection == SortDirection.ASCENDING) {
                                 SortDirection.DESCENDING
                             } else {
                                 SortDirection.ASCENDING
                             }
                         } else {
-                            // New option selected, set default direction based on the option
                             selectedSort = newSort
                             sortDirection = when (newSort) {
-                                SortOption.DATE -> SortDirection.DESCENDING // Newest first by default
-                                SortOption.NAME, SortOption.LOCATION -> SortDirection.ASCENDING // A-Z by default
+                                SortOption.DATE -> SortDirection.DESCENDING
+                                SortOption.NAME, SortOption.LOCATION -> SortDirection.ASCENDING
                             }
                         }
                     }
                 )
 
-                // Loading indicator
                 if (isLoading && connections.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -242,12 +223,10 @@ fun DashboardScreen(
                         CircularProgressIndicator()
                     }
                 } else if (filteredAndSortedConnections.isEmpty()) {
-                    // Empty state
                     ConnectionsEmptyState(
                         isSearching = searchQuery.isNotEmpty()
                     )
                 } else {
-                    // Connections list
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -268,7 +247,6 @@ fun DashboardScreen(
             }
         }
 
-        // Confirmation Dialog (outside PullToRefreshBox but inside Box)
         if (showConfirmationDialog && scannedUser != null) {
             ConfirmConnectionDialog(
                 user = scannedUser!!,
@@ -313,7 +291,6 @@ fun ConnectionsHeader(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header Row with Title and Scan Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -349,7 +326,6 @@ fun ConnectionsHeader(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Search Bar with 100.dp corner radius
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
@@ -398,7 +374,6 @@ fun ExpressiveSortRow(
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        // "Sort By" label
         Text(
             text = "Sort By",
             style = MaterialTheme.typography.labelMedium,
@@ -406,7 +381,6 @@ fun ExpressiveSortRow(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Sort Options Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -438,7 +412,6 @@ fun ExpressiveSortRow(
                                 text = label,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
-                            // Show direction indicator only for selected chip
                             if (isSelected) {
                                 Icon(
                                     imageVector = if (sortDirection == SortDirection.ASCENDING)
@@ -520,13 +493,11 @@ fun ConnectionCard(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            // Row 1: Avatar + Name & Job Title
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Large Circular Avatar
                 Surface(
                     modifier = Modifier.size(64.dp),
                     shape = CircleShape,
@@ -549,7 +520,6 @@ fun ConnectionCard(
                     }
                 }
 
-                // Name and Job Title Column
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -574,7 +544,6 @@ fun ConnectionCard(
                     }
                 }
 
-                // Connection Method Badge
                 Surface(
                     color = if (connection.connectionMethod == "NFC")
                         MaterialTheme.colorScheme.tertiaryContainer
@@ -597,13 +566,11 @@ fun ConnectionCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Row 2: Date and Location Icons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Date Icon + Text
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -624,7 +591,6 @@ fun ConnectionCard(
                     )
                 }
 
-                // Location Icon + Text
                 if (connection.connectedUserLocation.isNotEmpty()) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -721,7 +687,6 @@ fun ConnectionSummaryCard(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Profile picture placeholder
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -741,7 +706,6 @@ fun ConnectionSummaryCard(
                 )
             }
 
-            // Connection info
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -803,12 +767,10 @@ fun ConnectionSummaryCard(
                 }
             }
 
-            // Badges column
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Method badge
                 Surface(
                     color = if (connection.connectionMethod == "NFC")
                         MaterialTheme.colorScheme.primaryContainer
@@ -893,7 +855,6 @@ fun ConfirmConnectionDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // User details
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceVariant,
@@ -912,7 +873,6 @@ fun ConfirmConnectionDialog(
                             DetailRow(Icons.Default.Phone, user.phone)
                         }
 
-                        // Display social links from modern structure (only visible ones)
                         user.socialLinks.filter { it.isVisibleOnProfile }.forEach { link ->
                             DetailRow(link.platform.icon, "${link.label}: ${link.url}")
                         }
@@ -936,7 +896,6 @@ fun ConfirmConnectionDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1045,7 +1004,6 @@ private fun processReceivedData(
 
         Toast.makeText(context, "Profile received via $source", Toast.LENGTH_SHORT).show()
 
-        // Create User object from JSON
         User(
             userId = data.optString("userId", ""),
             createdAt = data.optLong("createdAt", 0),
@@ -1055,7 +1013,7 @@ private fun processReceivedData(
             phone = data.optString("phone", ""),
             description = data.optString("description", ""),
             location = data.optString("location", ""),
-            socialLinks = emptyList() // Will be parsed if available in JSON
+            socialLinks = emptyList()
         )
     } catch (e: Exception) {
         Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()

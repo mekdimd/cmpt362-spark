@@ -78,7 +78,7 @@ class NotificationHelper(
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
         } else {
-            true // Permission not required for older versions
+            true
         }
     }
 
@@ -97,7 +97,6 @@ class NotificationHelper(
             return
         }
 
-        // Deep link intent to open profile screen
         val deepLinkIntent = createDeepLinkIntent(userId, userName)
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -107,7 +106,7 @@ class NotificationHelper(
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_FOLLOW_UP)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your app icon
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Follow up with $userName")
             .setContentText("It's been a while! Reconnect with $userName today.")
             .setStyle(
@@ -119,7 +118,6 @@ class NotificationHelper(
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
 
-        // Add Call action if phone is available
         if (!userPhone.isNullOrEmpty()) {
             val callIntent = createCallIntent(userPhone)
             val callPendingIntent = PendingIntent.getActivity(
@@ -129,13 +127,12 @@ class NotificationHelper(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(
-                R.drawable.ic_launcher_foreground, // Replace with call icon
+                R.drawable.ic_launcher_foreground,
                 "Call",
                 callPendingIntent
             )
         }
 
-        // Add Message action if phone is available
         if (!userPhone.isNullOrEmpty()) {
             val messageIntent = createMessageIntent(userPhone)
             val messagePendingIntent = PendingIntent.getActivity(
@@ -151,7 +148,6 @@ class NotificationHelper(
             )
         }
 
-        // Add Email action if email is available
         if (!userEmail.isNullOrEmpty()) {
             val emailIntent = createEmailIntent(userEmail, userName)
             val emailPendingIntent = PendingIntent.getActivity(
@@ -168,11 +164,10 @@ class NotificationHelper(
         }
 
         try {
-            // Use unique notification ID combining connectionId and userId to avoid duplicates
             val notificationId = (connectionId + userId + "_followup").hashCode()
 
             android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
-            android.util.Log.d("NotificationHelper", "🔔 SHOWING FOLLOW-UP NOTIFICATION")
+            android.util.Log.d("NotificationHelper", "   SHOWING FOLLOW-UP NOTIFICATION")
             android.util.Log.d("NotificationHelper", "   User: $userName")
             android.util.Log.d("NotificationHelper", "   Connection ID: $connectionId")
             android.util.Log.d("NotificationHelper", "   User ID: $userId")
@@ -183,9 +178,9 @@ class NotificationHelper(
                 notificationId,
                 builder.build()
             )
-            android.util.Log.d("NotificationHelper", "✅ Follow-up notification shown for $userName")
+            android.util.Log.d("NotificationHelper", "Follow-up notification shown for $userName")
         } catch (e: SecurityException) {
-            android.util.Log.e("NotificationHelper", "❌ Failed to show notification", e)
+            android.util.Log.e("NotificationHelper", "Failed to show notification", e)
         }
     }
 
@@ -204,7 +199,6 @@ class NotificationHelper(
             return
         }
 
-        // Deep link intent to open profile screen
         val deepLinkIntent = createDeepLinkIntent(userId, userName)
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -226,7 +220,6 @@ class NotificationHelper(
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
 
-        // Add Call action if phone is available
         if (!userPhone.isNullOrEmpty()) {
             val callIntent = createCallIntent(userPhone)
             val callPendingIntent = PendingIntent.getActivity(
@@ -236,13 +229,12 @@ class NotificationHelper(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(
-                R.drawable.ic_launcher_foreground, // Replace with call icon
+                R.drawable.ic_launcher_foreground,
                 "Call",
                 callPendingIntent
             )
         }
 
-        // Add Message action if phone is available
         if (!userPhone.isNullOrEmpty()) {
             val messageIntent = createMessageIntent(userPhone)
             val messagePendingIntent = PendingIntent.getActivity(
@@ -252,13 +244,12 @@ class NotificationHelper(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(
-                R.drawable.ic_launcher_foreground, // Replace with message icon
+                R.drawable.ic_launcher_foreground,
                 "Message",
                 messagePendingIntent
             )
         }
 
-        // Add Email action if email is available
         if (!userEmail.isNullOrEmpty()) {
             val emailIntent = createEmailIntent(userEmail, userName)
             val emailPendingIntent = PendingIntent.getActivity(
@@ -268,18 +259,17 @@ class NotificationHelper(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(
-                R.drawable.ic_launcher_foreground, // Replace with email icon
+                R.drawable.ic_launcher_foreground,
                 "Email",
                 emailPendingIntent
             )
         }
 
         try {
-            // Use unique notification ID for connection notification
             val notificationId = (connectionId + userId + "_connection").hashCode()
 
             android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
-            android.util.Log.d("NotificationHelper", "🔔 SHOWING CONNECTION NOTIFICATION")
+            android.util.Log.d("NotificationHelper", "   SHOWING CONNECTION NOTIFICATION")
             android.util.Log.d("NotificationHelper", "   User: $userName")
             android.util.Log.d("NotificationHelper", "   Connection ID: $connectionId")
             android.util.Log.d("NotificationHelper", "   User ID: $userId")
@@ -290,9 +280,9 @@ class NotificationHelper(
                 notificationId,
                 builder.build()
             )
-            android.util.Log.d("NotificationHelper", "✅ Connection notification shown for $userName")
+            android.util.Log.d("NotificationHelper", "Connection notification shown for $userName")
         } catch (e: SecurityException) {
-            android.util.Log.e("NotificationHelper", "❌ Failed to show connection notification", e)
+            android.util.Log.e("NotificationHelper", "Failed to show connection notification", e)
         }
     }
 
@@ -300,7 +290,6 @@ class NotificationHelper(
      * Create deep link intent to open connection detail screen
      */
     private fun createDeepLinkIntent(userId: String, userName: String): Intent {
-        // Create intent to launch MainActivity with deep link data
         val intent = Intent(Intent.ACTION_VIEW).apply {
             data = Uri.parse("myapp://connection/$userId")
             setPackage(context.packageName)

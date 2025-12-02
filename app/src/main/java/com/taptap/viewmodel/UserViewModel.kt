@@ -83,7 +83,6 @@ class UserViewModel(context: Context) : ViewModel() {
                 _userSettings.value = loadedSettings
                 android.util.Log.d("UserViewModel", "Loaded settings from local: isPushNotificationsEnabled=${loadedSettings.isPushNotificationsEnabled}")
             } catch (e: Exception) {
-                // Use default settings
                 android.util.Log.w("UserViewModel", "Failed to load settings, using defaults", e)
                 _userSettings.value = UserSettings()
             }
@@ -95,7 +94,6 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     private fun saveUserSettings(settings: UserSettings) {
-        // Ensure userId is set
         val settingsWithUserId = if (settings.userId.isEmpty()) {
             settings.copy(userId = _currentUser.value?.userId ?: "")
         } else {
@@ -107,7 +105,6 @@ class UserViewModel(context: Context) : ViewModel() {
 
         android.util.Log.d("UserViewModel", "Saved settings: isPushNotificationsEnabled=${settingsWithUserId.isPushNotificationsEnabled}, isConnectionEnabled=${settingsWithUserId.isConnectionNotificationEnabled}, isFollowUpEnabled=${settingsWithUserId.isFollowUpNotificationEnabled}")
 
-        // Also save to Firestore
         viewModelScope.launch {
             userRepository.saveUserSettings(settingsWithUserId)
         }
@@ -115,21 +112,16 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     private fun loadUserFromStorage() {
-        // Check if user is authenticated
         val firebaseUser = auth.currentUser
         if (firebaseUser != null) {
-            // User is logged in, sync with Firestore
             syncWithFirestore(firebaseUser.uid)
         } else {
-            // No authenticated user, try to load from local storage for demo purposes
-            // In production, you might want to force login instead
             val savedUserJson = sharedPreferences?.getString("user_data", null)
             if (savedUserJson != null && savedUserJson.isNotEmpty()) {
                 try {
                     val savedUser = User.fromJson(savedUserJson)
                     _currentUser.value = savedUser
                 } catch (e: Exception) {
-                    // If loading fails, we'll wait for authentication
                     _errorMessage.value = "Please log in to continue"
                 }
             }
@@ -144,15 +136,12 @@ class UserViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
 
-            // Try to fetch existing user profile from Firestore
             userRepository.getUser(userId)
                 .onSuccess { firestoreUser ->
                     if (firestoreUser != null) {
-                        // User profile exists, load it
                         _currentUser.value = firestoreUser
                         saveUserToLocalStorage(firestoreUser)
                     } else {
-                        // Create new user profile
                         val newUser = User(
                             userId = userId,
                             createdAt = System.currentTimeMillis(),
@@ -173,7 +162,6 @@ class UserViewModel(context: Context) : ViewModel() {
                     _errorMessage.value = "Failed to load user profile: ${error.message}"
                 }
 
-            // Load user settings from Firestore or initialize with defaults
             userRepository.getUserSettings(userId)
                 .onSuccess { firestoreSettings ->
                     if (firestoreSettings != null) {
@@ -181,7 +169,6 @@ class UserViewModel(context: Context) : ViewModel() {
                         sharedPreferences?.edit()?.putString("user_settings", firestoreSettings.toJson().toString())?.apply()
                         android.util.Log.d("UserViewModel", "Loaded settings from Firestore: isPushNotificationsEnabled=${firestoreSettings.isPushNotificationsEnabled}")
                     } else {
-                        // Initialize with default settings (all enabled)
                         val defaultSettings = UserSettings(userId = userId)
                         _userSettings.value = defaultSettings
                         saveUserSettings(defaultSettings)
@@ -191,7 +178,6 @@ class UserViewModel(context: Context) : ViewModel() {
                 }
                 .onFailure { error ->
                     android.util.Log.w("UserViewModel", "Failed to load settings from Firestore: ${error.message}")
-                    // Use defaults
                     val defaultSettings = UserSettings(userId = userId)
                     _userSettings.value = defaultSettings
                     updateUiState()
@@ -207,11 +193,9 @@ class UserViewModel(context: Context) : ViewModel() {
             userRepository.getUser(userId, forceRefresh)
                 .onSuccess { firestoreUser ->
                     if (firestoreUser != null) {
-                        // Update local data with Firestore data
                         _currentUser.value = firestoreUser
                         saveUserToLocalStorage(firestoreUser)
                     } else {
-                        // User doesn't exist in Firestore, might need to create profile
                         _currentUser.value?.let { localUser ->
                             saveUserToFirestore(localUser)
                         }
@@ -238,7 +222,6 @@ class UserViewModel(context: Context) : ViewModel() {
             _isLoading.value = true
             userRepository.saveUser(user)
                 .onSuccess {
-                    // Successfully saved to Firestore
                 }
                 .onFailure { error ->
                     _errorMessage.value = "Failed to save to cloud: ${error.message}"
@@ -257,7 +240,6 @@ class UserViewModel(context: Context) : ViewModel() {
             _currentUser.value = updatedUser
             saveUserToLocalStorage(updatedUser)
 
-            // Update in Firestore
             viewModelScope.launch {
                 userRepository.updateLastSeen(current.userId, lastSeen)
             }
@@ -452,7 +434,7 @@ class UserViewModel(context: Context) : ViewModel() {
         android.util.Log.d("UserViewModel", "addSocialLink: updatedLinks has ${updatedLinks.size} links")
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
-        _socialLinks.value = updatedLinks // Explicitly update to trigger UI recomposition
+        _socialLinks.value = updatedLinks
         android.util.Log.d("UserViewModel", "addSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)
@@ -502,7 +484,7 @@ class UserViewModel(context: Context) : ViewModel() {
         val updatedLinks = currentUser.socialLinks.filter { it.id != linkId }
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
-        _socialLinks.value = updatedLinks // Explicitly update to trigger UI recomposition
+        _socialLinks.value = updatedLinks
         android.util.Log.d("UserViewModel", "deleteSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)

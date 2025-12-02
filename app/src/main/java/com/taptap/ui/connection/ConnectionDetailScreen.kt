@@ -33,7 +33,6 @@ fun ConnectionDetailScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
 
-    // Auto-stop refreshing after delay
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             kotlinx.coroutines.delay(1500)
@@ -72,7 +71,6 @@ fun ConnectionDetailScreen(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
-                // Profile header
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -80,7 +78,6 @@ fun ConnectionDetailScreen(
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Profile picture placeholder
                     Box(
                         modifier = Modifier
                             .size(120.dp)
@@ -119,7 +116,6 @@ fun ConnectionDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Connection info
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
                         shape = MaterialTheme.shapes.small
@@ -148,7 +144,6 @@ fun ConnectionDetailScreen(
                     }
                 }
 
-                // Contact details
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -185,7 +180,6 @@ fun ConnectionDetailScreen(
                         )
                     }
 
-                    // Social media section
                     val visibleSocialLinks = connection.connectedUserSocialLinks.filter { it.isVisibleOnProfile }
                     android.util.Log.d("ConnectionDetailScreen", "Displaying social links: ${visibleSocialLinks.size} out of ${connection.connectedUserSocialLinks.size}")
                     if (visibleSocialLinks.isNotEmpty()) {
@@ -211,7 +205,6 @@ fun ConnectionDetailScreen(
         }
     }
 
-    // Delete confirmation dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -259,7 +252,6 @@ fun ContactInfoItem(
                 }
 
                 "Location" -> Intent(Intent.ACTION_VIEW).apply {
-                    // Open in Google Maps
                     data = Uri.parse("geo:0,0?q=${Uri.encode(value)}")
                     setPackage("com.google.android.apps.maps")
                 }
@@ -267,7 +259,6 @@ fun ContactInfoItem(
                 "LinkedIn", "GitHub", "Instagram", "Website" -> Intent(Intent.ACTION_VIEW).apply {
                     val url = if (value.startsWith("http")) value else "https://$value"
                     data = Uri.parse(url)
-                    // Force external browser
                     addCategory(Intent.CATEGORY_BROWSABLE)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
@@ -277,12 +268,10 @@ fun ContactInfoItem(
 
             intent?.let {
                 try {
-                    // For maps, try with package first, fallback to without
                     if (label == "Location") {
                         try {
                             context.startActivity(it)
                         } catch (_: Exception) {
-                            // If Google Maps not installed, open in any map app
                             val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
                                 data = Uri.parse("geo:0,0?q=${Uri.encode(value)}")
                             }

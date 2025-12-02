@@ -28,11 +28,9 @@ class NfcReaderManager {
     private var nfcAdapter: NfcAdapter? = null
     private var isReaderModeEnabled = false
 
-    // Flow to emit discovered contact user IDs
     private val _contactFound = MutableSharedFlow<String>()
     val contactFound: SharedFlow<String> = _contactFound.asSharedFlow()
 
-    // Flow to emit errors
     private val _error = MutableSharedFlow<String>()
     val error: SharedFlow<String> = _error.asSharedFlow()
 
@@ -50,30 +48,30 @@ class NfcReaderManager {
             val ndefMessage = readNdefMessage(tag)
 
             if (ndefMessage != null) {
-                Log.i(TAG, "✓ NDEF message read successfully")
+                Log.i(TAG, "NDEF message read successfully")
                 Log.i(TAG, "Records count: ${ndefMessage.records.size}")
 
                 val userId = extractUserIdFromDeepLink(ndefMessage)
 
                 if (userId != null) {
-                    Log.i(TAG, "✓✓✓ Contact found: $userId")
+                    Log.i(TAG, "Contact found: $userId")
                     kotlinx.coroutines.runBlocking {
                         _contactFound.emit(userId)
                     }
                 } else {
-                    Log.w(TAG, "✗ No valid deep link found in NDEF message")
+                    Log.w(TAG, "No valid deep link found in NDEF message")
                     kotlinx.coroutines.runBlocking {
                         _error.emit("Invalid NFC data format")
                     }
                 }
             } else {
-                Log.w(TAG, "✗ Failed to read NDEF message from tag")
+                Log.w(TAG, "Failed to read NDEF message from tag")
                 kotlinx.coroutines.runBlocking {
                     _error.emit("Could not read NFC tag")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "✗✗✗ Error handling tag", e)
+            Log.e(TAG, "Error handling tag", e)
             kotlinx.coroutines.runBlocking {
                 _error.emit("Error reading NFC: ${e.message}")
             }
@@ -97,12 +95,12 @@ class NfcReaderManager {
         Log.d(TAG, "NfcAdapter obtained: ${nfcAdapter != null}")
 
         if (nfcAdapter == null) {
-            Log.e(TAG, "✗ NFC not available on this device")
+            Log.e(TAG, "NFC not available on this device")
             return false
         }
 
         if (!nfcAdapter!!.isEnabled) {
-            Log.w(TAG, "✗ NFC is disabled in settings")
+            Log.w(TAG, "NFC is disabled in settings")
             return false
         }
 
@@ -119,10 +117,10 @@ class NfcReaderManager {
             Log.d(TAG, "Calling NfcAdapter.enableReaderMode with flags: $flags")
             nfcAdapter?.enableReaderMode(activity, readerCallback, flags, null)
             isReaderModeEnabled = true
-            Log.i(TAG, "✓ NFC Reader mode enabled successfully")
+            Log.i(TAG, "NFC Reader mode enabled successfully")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "✗ Failed to enable reader mode", e)
+            Log.e(TAG, "Failed to enable reader mode", e)
             return false
         }
     }
@@ -142,9 +140,9 @@ class NfcReaderManager {
         try {
             nfcAdapter?.disableReaderMode(activity)
             isReaderModeEnabled = false
-            Log.i(TAG, "✓ NFC Reader mode disabled successfully")
+            Log.i(TAG, "NFC Reader mode disabled successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "✗ Failed to disable reader mode", e)
+            Log.e(TAG, "Failed to disable reader mode", e)
         }
     }
 
@@ -159,7 +157,6 @@ class NfcReaderManager {
      * 2. Fall back to ISO-DEP transceiver commands
      */
     private fun readNdefMessage(tag: Tag): NdefMessage? {
-        // Strategy 1: Try Ndef tech first (standard approach)
         try {
             val ndef = Ndef.get(tag)
             if (ndef != null) {
@@ -176,7 +173,6 @@ class NfcReaderManager {
             Log.d(TAG, "Ndef tech failed, trying ISO-DEP fallback", e)
         }
 
-        // Strategy 2: Fall back to ISO-DEP with T4T APDU commands
         return readNdefViaIsoDep(tag)
     }
 
@@ -187,15 +183,14 @@ class NfcReaderManager {
     private fun readNdefViaIsoDep(tag: Tag): NdefMessage? {
         try {
             val isoDep = IsoDep.get(tag) ?: return null
-            isoDep.timeout = 3000 // 3 second timeout
+            isoDep.timeout = 3000
             isoDep.connect()
 
-            // Step 1: SELECT NDEF Application by AID
             val selectAid = byteArrayOf(
                 0x00, 0xA4.toByte(), 0x04, 0x00,
-                0x07, // Lc = 7
-                0xD2.toByte(), 0x76, 0x00, 0x00, 0x85.toByte(), 0x01, 0x01, // NDEF AID
-                0x00  // Le = 0
+                0x07,
+                0xD2.toByte(), 0x76, 0x00, 0x00, 0x85.toByte(), 0x01, 0x01,
+                0x00 
             )
 
             var response = isoDep.transceive(selectAid)
@@ -206,22 +201,20 @@ class NfcReaderManager {
             }
             Log.d(TAG, "NDEF application selected")
 
-            // Step 2: SELECT Capability Container (CC) file
             var ndefFileId: Pair<Byte, Byte>? = null
             val selectCc = byteArrayOf(
                 0x00, 0xA4.toByte(), 0x00, 0x0C,
-                0x02, // Lc = 2
-                0xE1.toByte(), 0x03 // CC file ID
+                0x02,
+                0xE1.toByte(), 0x03
             )
 
             response = isoDep.transceive(selectCc)
             if (isSuccess(response)) {
                 Log.d(TAG, "CC file selected")
 
-                // Step 3: READ CC file to get NDEF file ID
                 val readCc = byteArrayOf(
                     0x00, 0xB0.toByte(), 0x00, 0x00,
-                    0x0F // Le = 15 bytes
+                    0x0F
                 )
 
                 response = isoDep.transceive(readCc)
@@ -232,11 +225,10 @@ class NfcReaderManager {
                 }
             }
 
-            // Step 4: SELECT NDEF file (use parsed ID or default E104)
             val fileId = ndefFileId ?: Pair(0xE1.toByte(), 0x04.toByte())
             val selectNdef = byteArrayOf(
                 0x00, 0xA4.toByte(), 0x00, 0x0C,
-                0x02, // Lc = 2
+                0x02,
                 fileId.first, fileId.second
             )
 
@@ -248,10 +240,9 @@ class NfcReaderManager {
             }
             Log.d(TAG, "NDEF file selected")
 
-            // Step 5: READ NLEN (first 2 bytes of NDEF file)
             val readNlen = byteArrayOf(
                 0x00, 0xB0.toByte(), 0x00, 0x00,
-                0x02 // Le = 2 bytes
+                0x02
             )
 
             response = isoDep.transceive(readNlen)
@@ -269,14 +260,13 @@ class NfcReaderManager {
             }
             Log.d(TAG, "NDEF length: $nlen bytes")
 
-            // Step 6: READ NDEF message data (starting at offset 2)
             val ndefData = ByteArray(nlen)
             var offset = 0
-            var fileOffset = 2 // Skip NLEN field
+            var fileOffset = 2
 
             while (offset < nlen) {
                 val remaining = nlen - offset
-                val chunkSize = minOf(0xF0, remaining) // Read max 240 bytes at a time
+                val chunkSize = minOf(0xF0, remaining)
 
                 val p1 = (fileOffset shr 8).toByte()
                 val p2 = (fileOffset and 0xFF).toByte()
@@ -324,7 +314,7 @@ class NfcReaderManager {
      * Looks for NDEF File Control TLV (T=0x04)
      */
     private fun parseNdefFileIdFromCc(cc: ByteArray): Pair<Byte, Byte>? {
-        var i = 2 // Skip CCLEN field
+        var i = 2
 
         while (i + 1 < cc.size) {
             val t = cc[i].toInt() and 0xFF
@@ -333,8 +323,6 @@ class NfcReaderManager {
             val valueEnd = valueStart + l
 
             if (t == 0x04 && l >= 6 && valueEnd <= cc.size) {
-                // NDEF File Control TLV found
-                // Structure: FileID(2) MaxSize(2) Read(1) Write(1)
                 return Pair(cc[valueStart], cc[valueStart + 1])
             }
 
@@ -369,7 +357,6 @@ class NfcReaderManager {
     private fun parseNdefRecordToUri(record: NdefRecord): String? {
         return try {
             when {
-                // URI Record
                 record.tnf == NdefRecord.TNF_WELL_KNOWN &&
                 record.type.contentEquals(NdefRecord.RTD_URI) -> {
                     val payload = record.payload
@@ -378,7 +365,6 @@ class NfcReaderManager {
                     val prefixCode = payload[0].toInt() and 0xFF
                     val uriPart = String(payload, 1, payload.size - 1, Charset.forName("UTF-8"))
 
-                    // Standard URI prefixes (NFC Forum URI Record Type Definition)
                     val prefixes = arrayOf(
                         "", "http://www.", "https://www.", "http://", "https://",
                         "tel:", "mailto:", "ftp://anonymous:anonymous@", "ftp://ftp.", "ftps://",
@@ -394,7 +380,6 @@ class NfcReaderManager {
                     prefix + uriPart
                 }
 
-                // Text Record (less common but supported)
                 record.tnf == NdefRecord.TNF_WELL_KNOWN &&
                 record.type.contentEquals(NdefRecord.RTD_TEXT) -> {
                     val payload = record.payload
@@ -406,7 +391,6 @@ class NfcReaderManager {
                     String(payload, 1 + languageCodeLength, payload.size - 1 - languageCodeLength, encoding)
                 }
 
-                // Generic fallback
                 else -> {
                     String(record.payload, Charset.forName("UTF-8"))
                 }

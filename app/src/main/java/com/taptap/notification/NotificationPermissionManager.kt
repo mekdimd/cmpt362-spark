@@ -27,7 +27,7 @@ class NotificationPermissionManager @Inject constructor() {
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
         } else {
-            true // Permission not required for older versions
+            true
         }
     }
 

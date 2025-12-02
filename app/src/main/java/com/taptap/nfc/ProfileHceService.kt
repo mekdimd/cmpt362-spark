@@ -17,51 +17,38 @@ class ProfileHceService : HostApduService() {
     companion object {
         private const val TAG = "ProfileHceService"
 
-        // Status words (ISO7816-4)
         private val SW_OK = byteArrayOf(0x90.toByte(), 0x00)
         private val SW_FILE_NOT_FOUND = byteArrayOf(0x6A.toByte(), 0x82.toByte())
         private val SW_WRONG_PARAMETERS = byteArrayOf(0x6B.toByte(), 0x00)
         private val SW_INS_NOT_SUPPORTED = byteArrayOf(0x6D.toByte(), 0x00)
         private val SW_CLA_NOT_SUPPORTED = byteArrayOf(0x6E.toByte(), 0x00)
 
-        // NDEF Application AID (NFC Forum Type 4 Tag - Standard)
         private val NDEF_AID = byteArrayOf(
             0xD2.toByte(), 0x76, 0x00, 0x00, 0x85.toByte(), 0x01, 0x01
         )
 
-        // File IDs (NFC Forum T4T specification)
-        private val CC_FILE_ID = byteArrayOf(0xE1.toByte(), 0x03)  // Capability Container
-        private val NDEF_FILE_ID = byteArrayOf(0xE1.toByte(), 0x04) // NDEF message file
+        private val CC_FILE_ID = byteArrayOf(0xE1.toByte(), 0x03) 
+        private val NDEF_FILE_ID = byteArrayOf(0xE1.toByte(), 0x04)
 
-        // CC file constants
         private const val CC_LEN = 0x000F
-        private const val MAPPING_VERSION = 0x20 // v2.0
-        private const val MLe = 0x003B // Max R-APDU data size
-        private const val MLc = 0x0034 // Max C-APDU data size
-        private const val MAX_NDEF_SIZE = 0x03E8 // 1000 bytes
+        private const val MAPPING_VERSION = 0x20
+        private const val MLe = 0x003B
+        private const val MLc = 0x0034
+        private const val MAX_NDEF_SIZE = 0x03E8
 
         /**
          * Build Capability Container file per NFC Forum T4T specification
          */
         private fun buildCcFile(): ByteArray {
             return byteArrayOf(
-                // CCLEN (2 bytes)
                 (CC_LEN shr 8).toByte(), (CC_LEN and 0xFF).toByte(),
-                // Mapping Version (1 byte)
                 MAPPING_VERSION.toByte(),
-                // MLe (2 bytes) - Maximum R-APDU data size
                 (MLe shr 8).toByte(), (MLe and 0xFF).toByte(),
-                // MLc (2 bytes) - Maximum C-APDU data size
                 (MLc shr 8).toByte(), (MLc and 0xFF).toByte(),
-                // NDEF File Control TLV
-                0x04, 0x06, // T=04 (NDEF), L=06
-                // File Identifier (2 bytes)
+                0x04, 0x06,
                 NDEF_FILE_ID[0], NDEF_FILE_ID[1],
-                // Max NDEF size (2 bytes)
                 (MAX_NDEF_SIZE shr 8).toByte(), (MAX_NDEF_SIZE and 0xFF).toByte(),
-                // Read access (1 byte) - 0x00 = allowed
                 0x00,
-                // Write access (1 byte) - 0xFF = not allowed (read-only)
                 0xFF.toByte()
             )
         }
@@ -75,7 +62,6 @@ class ProfileHceService : HostApduService() {
             val message = NdefMessage(arrayOf(record))
             val ndefBytes = message.toByteArray()
 
-            // Prepend NLEN (2 bytes)
             val nlen = ndefBytes.size
             return byteArrayOf(
                 (nlen shr 8).toByte(),
@@ -93,7 +79,6 @@ class ProfileHceService : HostApduService() {
             return SW_CLA_NOT_SUPPORTED
         }
 
-        // Parse APDU header
         val cla = commandApdu[0]
         val ins = commandApdu[1]
         val p1 = commandApdu[2]
@@ -101,13 +86,11 @@ class ProfileHceService : HostApduService() {
 
         Log.d(TAG, "APDU: CLA=${String.format("%02X", cla)} INS=${String.format("%02X", ins)} P1=${String.format("%02X", p1)} P2=${String.format("%02X", p2)}")
 
-        // Check CLASS byte
         if (cla.toInt() != 0x00) {
             Log.w(TAG, "Unsupported CLA: ${String.format("%02X", cla)}")
             return SW_CLA_NOT_SUPPORTED
         }
 
-        // Handle INSTRUCTION byte
         return when (ins.toInt() and 0xFF) {
             0xA4 -> handleSelect(p1, p2, commandApdu)
             0xB0 -> handleReadBinary(p1, p2, commandApdu)
@@ -124,7 +107,7 @@ class ProfileHceService : HostApduService() {
      */
     private fun handleSelect(p1: Byte, p2: Byte, apdu: ByteArray): ByteArray {
         return when (p1.toInt() and 0xFF) {
-            0x04 -> { // SELECT by AID (Application ID)
+            0x04 -> {
                 val lc = apdu.getOrNull(4)?.toInt()?.and(0xFF) ?: return SW_WRONG_PARAMETERS
                 if (apdu.size < 5 + lc) return SW_WRONG_PARAMETERS
 
@@ -140,7 +123,7 @@ class ProfileHceService : HostApduService() {
                 }
             }
 
-            0x00 -> { // SELECT by File ID
+            0x00 -> {
                 val lc = apdu.getOrNull(4)?.toInt()?.and(0xFF) ?: return SW_WRONG_PARAMETERS
                 if (lc != 2 || apdu.size < 7) return SW_WRONG_PARAMETERS
 
@@ -173,20 +156,16 @@ class ProfileHceService : HostApduService() {
      * Returns file data starting at offset P1P2 with length Le
      */
     private fun handleReadBinary(p1: Byte, p2: Byte, apdu: ByteArray): ByteArray {
-        // Calculate offset from P1P2
         val offset = ((p1.toInt() and 0xFF) shl 8) or (p2.toInt() and 0xFF)
 
-        // Get expected response length (Le)
         val le = if (apdu.size >= 5) (apdu[4].toInt() and 0xFF) else 0x00
         val maxLe = if (le == 0) 256 else le
 
         Log.d(TAG, "READ BINARY: offset=$offset, maxLe=$maxLe, selectedFile=$selectedFile")
 
-        // Get file data based on selected file
         val fileData = when (selectedFile) {
             SelectedFile.CC -> buildCcFile()
             SelectedFile.NDEF -> {
-                // Get current user ID from Firebase Auth
                 val userId = FirebaseAuth.getInstance().currentUser?.uid
                 if (userId == null) {
                     Log.e(TAG, "No user logged in, cannot create deep link")
@@ -202,13 +181,11 @@ class ProfileHceService : HostApduService() {
             }
         }
 
-        // Validate offset
         if (offset > fileData.size) {
             Log.w(TAG, "Invalid offset: $offset (file size: ${fileData.size})")
             return SW_WRONG_PARAMETERS
         }
 
-        // Calculate data to send
         val remaining = fileData.size - offset
         val dataToSend = if (remaining <= 0) {
             byteArrayOf()
