@@ -174,7 +174,6 @@ sealed class MainScreen(val route: String, val title: String, val icon: ImageVec
     object Dashboard : MainScreen("dashboard", "Connections", Icons.Filled.People)
     object Map : MainScreen("map", "Map", Icons.Filled.Map)
     object Profile : MainScreen("profile", "Profile", Icons.Filled.AccountCircle)
-    object Settings : MainScreen("settings", "Settings", Icons.Filled.Settings)
     object EditProfile : MainScreen("edit_profile", "Edit Profile", Icons.Filled.Edit)
     object ConnectionDetail :
         MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
@@ -451,17 +450,6 @@ fun MainScreenContent(
                     )
                 }
 
-                composable(MainScreen.Settings.route) {
-                    com.taptap.ui.settings.SettingsScreen(
-                        userViewModel = userViewModel,
-                        onNavigateToEditProfile = {
-                            navController.navigate(MainScreen.EditProfile.route)
-                        },
-                        onNavigateBack = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
 
                 composable(MainScreen.EditProfile.route) {
                     com.taptap.ui.settings.EditProfileScreen(

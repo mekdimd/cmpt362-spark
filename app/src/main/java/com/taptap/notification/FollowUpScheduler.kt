@@ -81,6 +81,26 @@ class FollowUpScheduler(
 
             Log.d(TAG, "✅ Follow-up work enqueued successfully!")
             Log.d(TAG, "🔔 Notification will trigger in $delayValue $delayUnit")
+
+            // Calculate and log the exact trigger time
+            val triggerTimeMillis = System.currentTimeMillis() + when (timeUnit) {
+                TimeUnit.MINUTES -> adjustedDelay * 60 * 1000
+                TimeUnit.DAYS -> adjustedDelay * 24 * 60 * 60 * 1000
+                else -> adjustedDelay * 24 * 60 * 60 * 1000
+            }
+            val triggerDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                .format(java.util.Date(triggerTimeMillis))
+
+            Log.d(TAG, "📅 Will trigger at: $triggerDate")
+            Log.d(TAG, "⏱️  Current time: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
+
+            // Show countdown for testing (especially useful for minutes)
+            if (delayUnit.lowercase() == "minutes") {
+                val totalSeconds = adjustedDelay * 60
+                Log.d(TAG, "⏳ COUNTDOWN: $totalSeconds seconds ($delayValue minutes)")
+                Log.d(TAG, "💡 TIP: Watch logcat for 'FollowUpWorker' to see when it triggers!")
+            }
+
             Log.d(TAG, "═══════════════════════════════════════════════")
         } catch (e: Exception) {
             Log.e(TAG, "❌ ERROR: Failed to enqueue follow-up work", e)

@@ -356,6 +356,7 @@ class ConnectionViewModel : ViewModel() {
 
     /**
      * Create reverse connection for bidirectional relationship
+     * AND send notification + schedule follow-up for the other person
      */
     private suspend fun createReverseConnection(
         userId: String,
@@ -378,7 +379,45 @@ class ConnectionViewModel : ViewModel() {
                         timestamp = System.currentTimeMillis(),
                         connectionMethod = connectionMethod
                     )
+
                     connectionRepository.saveConnection(reverseConnection)
+                        .onSuccess { reverseConnectionId ->
+                            Log.d("ConnectionViewModel", "✅ Reverse connection created with ID: $reverseConnectionId")
+
+                            // 🔔 SEND NOTIFICATION TO THE OTHER PERSON
+                            // NOTE: This creates a LOCAL notification on THIS device only.
+                            // For the other user to receive a notification on THEIR device,
+                            // you need Firebase Cloud Messaging (FCM) to send remote push notifications.
+                            // When the other user opens their app, they will see the new connection.
+                            viewModelScope.launch {
+                                val otherUserSettings = userRepository.getUserSettings(userId)
+                                val settings = otherUserSettings.getOrNull()
+
+                                Log.d("ConnectionViewModel", "📱 Checking notification settings for other user ($userId)")
+                                Log.d("ConnectionViewModel", "   Push enabled: ${settings?.isPushNotificationsEnabled}")
+                                Log.d("ConnectionViewModel", "   Connection notif enabled: ${settings?.isConnectionNotificationEnabled}")
+                                Log.d("ConnectionViewModel", "   ⚠️  NOTE: Notification is LOCAL only (needs FCM for remote)")
+
+                                if (settings?.isPushNotificationsEnabled == true &&
+                                    settings.isConnectionNotificationEnabled) {
+                                    Log.d("ConnectionViewModel", "🔔 Creating LOCAL notification for other user")
+                                    Log.d("ConnectionViewModel", "   💡 For REMOTE push, implement FCM (Firebase Cloud Messaging)")
+                                    notificationHelper.showConnectionNotification(
+                                        connectionId = reverseConnectionId,
+                                        userId = currentUser.userId,
+                                        userName = currentUser.fullName,
+                                        userEmail = currentUser.email,
+                                        userPhone = currentUser.phone
+                                    )
+                                } else {
+                                    Log.d("ConnectionViewModel", "🔕 Skipping notification (disabled in settings)")
+                                }
+                            }
+
+                            // 📅 SCHEDULE FOLLOW-UP FOR THE OTHER PERSON
+                            val reverseConnectionWithId = reverseConnection.copy(connectionId = reverseConnectionId)
+                            scheduleFollowUpReminder(reverseConnectionWithId)
+                        }
                 }
             }
         } catch (e: Exception) {
