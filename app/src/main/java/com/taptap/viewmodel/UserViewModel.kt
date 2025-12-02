@@ -343,6 +343,20 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
+     * Update follow-up reminder days preference
+     */
+    fun updateFollowUpReminderDays(days: Int) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            followUpReminderDays = days
+        )
+        saveUserSettings(updated)
+        updateUiState()
+        android.util.Log.d("UserViewModel", "Follow-up reminder days updated to: $days")
+    }
+
+    /**
      * Add a new social link
      */
     fun addSocialLink(link: SocialLink) {

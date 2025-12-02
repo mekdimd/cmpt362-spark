@@ -104,6 +104,18 @@ fun SettingsScreen(
                         userViewModel.updateNotificationPreference(!settings.isPushNotificationsEnabled)
                     }
                 )
+
+                SettingsDivider()
+
+                FollowUpReminderSlider(
+                    icon = Icons.Default.Schedule,
+                    title = "Follow-up Reminder",
+                    subtitle = "Days until follow-up notification",
+                    currentDays = settings.followUpReminderDays,
+                    onDaysChange = { days ->
+                        userViewModel.updateFollowUpReminderDays(days)
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -347,5 +359,89 @@ fun SettingsDivider() {
         modifier = Modifier.padding(horizontal = 60.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     )
+}
+
+@Composable
+fun FollowUpReminderSlider(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    currentDays: Int,
+    onDaysChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "$currentDays days",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Slider
+        Slider(
+            value = currentDays.toFloat(),
+            onValueChange = { onDaysChange(it.toInt()) },
+            valueRange = 7f..90f,
+            steps = 82, // 83 values from 7 to 90
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp)
+        )
+
+        // Range labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "7 days",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "90 days",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 

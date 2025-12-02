@@ -1,10 +1,14 @@
 package com.taptap
 
+import android.Manifest
 import android.content.Intent
 import android.nfc.NfcAdapter
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -21,6 +25,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.taptap.notification.NotificationHelper
 import com.taptap.ui.auth.ForgotPasswordScreen
 import com.taptap.ui.auth.LoginScreen
 import com.taptap.ui.auth.RegisterScreen
@@ -42,6 +47,18 @@ class MainActivity : ComponentActivity() {
     lateinit var authViewModel: AuthViewModel
     lateinit var connectionViewModel: ConnectionViewModel
     private var currentIntent: MutableState<Intent?> = mutableStateOf(null)
+    private lateinit var notificationHelper: NotificationHelper
+
+    // Notification permission launcher for Android 13+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("MainActivity", "Notification permission granted")
+        } else {
+            Log.d("MainActivity", "Notification permission denied")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,11 +69,18 @@ class MainActivity : ComponentActivity() {
         authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
         connectionViewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
 
-        // Initialize location service
+        // Initialize services
         connectionViewModel.initializeLocationService(this)
+        notificationHelper = NotificationHelper(this)
+
+        // Request notification permission for Android 13+
+        requestNotificationPermission()
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         currentIntent.value = intent
+
+        // Handle deep link from notification
+        handleDeepLink(intent)
 
         setContent {
             TapTapTheme {
@@ -74,6 +98,38 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         currentIntent.value = intent
+        handleDeepLink(intent)
+    }
+
+    /**
+     * Request notification permission for Android 13+
+     */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!notificationHelper.hasNotificationPermission()) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    /**
+     * Handle deep links from notifications
+     */
+    private fun handleDeepLink(intent: Intent?) {
+        intent?.data?.let { uri ->
+            Log.d("MainActivity", "Deep link received: $uri")
+
+            // Handle connection deep link: myapp://connection/{userId}
+            if (uri.scheme == "myapp" && uri.host == "connection") {
+                val userId = uri.pathSegments.getOrNull(0)
+                val userName = intent.getStringExtra(NotificationHelper.EXTRA_USER_NAME)
+
+                Log.d("MainActivity", "Opening connection for user: $userName (ID: $userId)")
+
+                // The navigation will be handled by the DashboardScreen or ConnectionDetailScreen
+                // when it observes the intent change
+            }
+        }
     }
 }
 

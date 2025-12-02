@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taptap.model.Connection
 import com.taptap.model.User
+import com.taptap.notification.FollowUpScheduler
+import com.taptap.notification.NotificationHelper
 import com.taptap.repository.ConnectionRepository
 import com.taptap.repository.UserRepository
 import com.taptap.service.LocationService
@@ -41,10 +43,14 @@ class ConnectionViewModel : ViewModel() {
     val connectionCount: LiveData<Int> = _connectionCount
 
     private lateinit var locationService: LocationService
+    private lateinit var notificationHelper: NotificationHelper
+    private lateinit var followUpScheduler: FollowUpScheduler
 
     // Initialize with context
     fun initializeLocationService(context: Context) {
         locationService = LocationService(context)
+        notificationHelper = NotificationHelper(context)
+        followUpScheduler = FollowUpScheduler(context)
     }
 
     /**
@@ -190,6 +196,19 @@ class ConnectionViewModel : ViewModel() {
                         // Create reverse connection (bidirectional)
                         createReverseConnection(connectedUser.userId, userId, connectionMethod)
 
+                        // Show connection notification
+                        notificationHelper.showConnectionNotification(
+                            connectionId = connectionId,
+                            userId = connectedUser.userId,
+                            userName = connectedUser.fullName,
+                            userEmail = connectedUser.email,
+                            userPhone = connectedUser.phone
+                        )
+
+                        // Schedule follow-up reminder
+                        val connectionWithId = connection.copy(connectionId = connectionId)
+                        scheduleFollowUpReminder(connectionWithId)
+
                         _successMessage.value = "Connection saved with location!"
                         // Reload connections
                         loadConnections(userId)
@@ -263,6 +282,19 @@ class ConnectionViewModel : ViewModel() {
                     // Create reverse connection (bidirectional)
                     createReverseConnection(connectedUser.userId, userId, connectionMethod)
 
+                    // Show connection notification
+                    notificationHelper.showConnectionNotification(
+                        connectionId = connectionId,
+                        userId = connectedUser.userId,
+                        userName = connectedUser.fullName,
+                        userEmail = connectedUser.email,
+                        userPhone = connectedUser.phone
+                    )
+
+                    // Schedule follow-up reminder
+                    val connectionWithId = connection.copy(connectionId = connectionId)
+                    scheduleFollowUpReminder(connectionWithId)
+
                     _successMessage.value = "Connection saved successfully!"
                     // Reload connections
                     loadConnections(userId)
@@ -272,6 +304,29 @@ class ConnectionViewModel : ViewModel() {
                 }
 
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Schedule a follow-up reminder for a connection
+     * Uses user's settings to determine delay
+     */
+    private fun scheduleFollowUpReminder(connection: Connection) {
+        viewModelScope.launch {
+            try {
+                // Fetch user settings to get follow-up delay
+                val settingsResult = userRepository.getUserSettings(connection.userId)
+                val delayDays = if (settingsResult.isSuccess) {
+                    settingsResult.getOrNull()?.followUpReminderDays ?: FollowUpScheduler.DEFAULT_FOLLOW_UP_DAYS
+                } else {
+                    FollowUpScheduler.DEFAULT_FOLLOW_UP_DAYS
+                }
+
+                Log.d("ConnectionViewModel", "Scheduling follow-up for ${connection.connectedUserName} in $delayDays days")
+                followUpScheduler.scheduleFollowUpReminder(connection, delayDays)
+            } catch (e: Exception) {
+                Log.e("ConnectionViewModel", "Failed to schedule follow-up reminder", e)
+            }
         }
     }
 

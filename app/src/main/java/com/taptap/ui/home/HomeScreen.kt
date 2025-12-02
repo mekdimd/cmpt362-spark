@@ -263,7 +263,7 @@ fun HomeScreen(
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Generate QR Code", style = MaterialTheme.typography.titleMedium)
+            Text("Share QR Code", style = MaterialTheme.typography.titleMedium)
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -291,7 +291,7 @@ fun HomeScreen(
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Scan QR Code", style = MaterialTheme.typography.titleMedium)
+            Text("Scan Code", style = MaterialTheme.typography.titleMedium)
         }
         }
     }
