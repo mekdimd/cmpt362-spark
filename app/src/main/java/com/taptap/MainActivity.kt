@@ -297,6 +297,7 @@ fun MainScreenContent(
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
+    var pendingScanMethod by remember { mutableStateOf<String?>(null) } // Track scan method (NFC/QR)
 
     // Handle deep link navigation from notifications and NFC
     LaunchedEffect(currentIntent) {
@@ -406,10 +407,16 @@ fun MainScreenContent(
                         label = { Text(screen.title) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
+                            Log.d("MainActivity", "═══ Bottom Nav Clicked: ${screen.title} ═══")
+                            Log.d("MainActivity", "Current destination: ${currentDestination?.route}")
+                            Log.d("MainActivity", "Target route: ${screen.route}")
+
                             // If already on this screen, pop to start destination
                             val isCurrentScreen = currentDestination?.route == screen.route
+                            Log.d("MainActivity", "Is current screen: $isCurrentScreen")
 
                             if (isCurrentScreen) {
+                                Log.d("MainActivity", "→ Refreshing current screen (pop and recreate)")
                                 // Navigate to the home of this section (pop to self)
                                 navController.navigate(screen.route) {
                                     popUpTo(screen.route) {
@@ -418,13 +425,19 @@ fun MainScreenContent(
                                     launchSingleTop = true
                                 }
                             } else {
+                                Log.d("MainActivity", "→ Navigating to new screen")
                                 // Normal navigation
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                try {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                    Log.d("MainActivity", "✓ Navigation completed successfully")
+                                } catch (e: Exception) {
+                                    Log.e("MainActivity", "✗ Navigation failed", e)
                                 }
                             }
                         }
@@ -443,11 +456,14 @@ fun MainScreenContent(
                     HomeScreen(
                         userViewModel = userViewModel,
                         nfcAdapter = nfcAdapter,
-                        onNavigateToDashboard = { scannedUser ->
-                            // Store the scanned user and navigate to dashboard
+                        onNavigateToDashboard = { scannedUser, scanMethod ->
+                            // Store the scanned user and scan method, then navigate to dashboard
                             pendingScannedUser = scannedUser
+                            pendingScanMethod = scanMethod
+                            Log.d("MainActivity", "Navigating to Dashboard with user: ${scannedUser.fullName}, method: $scanMethod")
                             navController.navigate(MainScreen.Dashboard.route) {
                                 launchSingleTop = true
+                                restoreState = true
                             }
                         }
                     )
@@ -465,9 +481,11 @@ fun MainScreenContent(
                             )
                         },
                         scannedUserFromHome = pendingScannedUser,
+                        scanMethodFromHome = pendingScanMethod, // Pass the scan method
                         onScannedUserHandled = {
-                            // Clear the pending scanned user after it's been handled
+                            // Clear the pending scanned user and method after they've been handled
                             pendingScannedUser = null
+                            pendingScanMethod = null
                         }
                     )
                 }

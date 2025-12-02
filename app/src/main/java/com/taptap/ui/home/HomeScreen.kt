@@ -46,8 +46,12 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     userViewModel: UserViewModel,
     nfcAdapter: NfcAdapter?,
-    onNavigateToDashboard: ((User) -> Unit)? = null
+    onNavigateToDashboard: ((User, String) -> Unit)? = null // Added scan method parameter
 ) {
+    Log.d("HomeScreen", "╔═══════════════════════════════════════════════════════════╗")
+    Log.d("HomeScreen", "║  HomeScreen COMPOSING                                     ║")
+    Log.d("HomeScreen", "╚═══════════════════════════════════════════════════════════╝")
+
     val context = LocalContext.current
     val activity = context as? Activity
     val currentUser by userViewModel.currentUser.observeAsState(User())
@@ -78,7 +82,7 @@ fun HomeScreen(
                 if (user != null) {
                     Log.d("HomeScreen", "User loaded: ${user.fullName}")
                     Toast.makeText(context, "Profile received: ${user.fullName}", Toast.LENGTH_SHORT).show()
-                    onNavigateToDashboard?.invoke(user)
+                    onNavigateToDashboard?.invoke(user, "NFC") // Pass "NFC" as scan method
                 } else {
                     scope.launch {
                         snackbarHostState.showSnackbar(
@@ -144,6 +148,7 @@ fun HomeScreen(
             if (activity != null && isNfcReaderActive) {
                 Log.d("HomeScreen", "→ Disabling NFC reader in dispose")
                 nfcReaderManager.disableReaderMode(activity)
+                Log.d("HomeScreen", "→ NFC reader disabled in dispose")
             }
         }
     }
@@ -162,7 +167,7 @@ fun HomeScreen(
             val user = handleScannedQrCode(result.contents, context)
             if (user != null) {
                 // Trigger navigation to dashboard with scanned user
-                onNavigateToDashboard?.invoke(user)
+                onNavigateToDashboard?.invoke(user, "QR") // Pass "QR" as scan method
             }
         }
     }
