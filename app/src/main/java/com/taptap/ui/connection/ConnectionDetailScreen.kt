@@ -65,13 +65,11 @@ fun ConnectionDetailScreen(
                 onRefresh()
             },
             state = pullToRefreshState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
                 // Profile header
@@ -189,6 +187,7 @@ fun ConnectionDetailScreen(
 
                     // Social media section
                     val visibleSocialLinks = connection.connectedUserSocialLinks.filter { it.isVisibleOnProfile }
+                    android.util.Log.d("ConnectionDetailScreen", "Displaying social links: ${visibleSocialLinks.size} out of ${connection.connectedUserSocialLinks.size}")
                     if (visibleSocialLinks.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -198,7 +197,8 @@ fun ConnectionDetailScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        visibleSocialLinks.forEach { socialLink ->
+                        visibleSocialLinks.forEachIndexed { index, socialLink ->
+                            android.util.Log.d("ConnectionDetailScreen", "  Displaying link $index: ${socialLink.label} - ${socialLink.url}")
                             ContactInfoItem(
                                 icon = socialLink.platform.icon,
                                 label = socialLink.label.ifEmpty { socialLink.platform.displayName },

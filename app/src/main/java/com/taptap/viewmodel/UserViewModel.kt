@@ -57,14 +57,17 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     private fun updateUiState() {
+        val linksFromUser = _currentUser.value?.socialLinks ?: emptyList()
+        android.util.Log.d("UserViewModel", "updateUiState: currentUser has ${linksFromUser.size} links")
         _uiState.value = UserUiState(
             isLoading = _isLoading.value ?: false,
             currentUser = _currentUser.value,
             settings = _userSettings.value ?: UserSettings(),
-            socialLinks = _currentUser.value?.socialLinks ?: emptyList(),
+            socialLinks = linksFromUser,
             error = _errorMessage.value
         )
-        _socialLinks.value = _currentUser.value?.socialLinks ?: emptyList()
+        _socialLinks.value = linksFromUser
+        android.util.Log.d("UserViewModel", "updateUiState: _socialLinks.value set to ${_socialLinks.value?.size} links")
     }
 
     private fun loadUserSettings() {
@@ -247,10 +250,7 @@ class UserViewModel(context: Context) : ViewModel() {
      * Get user profile as JSON for NFC/QR sharing
      */
     fun getUserProfileJson(): JSONObject {
-        val user = _currentUser.value
-        if (user == null) {
-            return JSONObject()
-        }
+        val user = _currentUser.value ?: return JSONObject()
 
         val json = JSONObject()
         json.put("app_id", "com.taptap")
@@ -347,12 +347,17 @@ class UserViewModel(context: Context) : ViewModel() {
      */
     fun addSocialLink(link: SocialLink) {
         val currentUser = _currentUser.value ?: return
+        android.util.Log.d("UserViewModel", "addSocialLink: currentUser has ${currentUser.socialLinks.size} links")
         val updatedLinks = currentUser.socialLinks + link
+        android.util.Log.d("UserViewModel", "addSocialLink: updatedLinks has ${updatedLinks.size} links")
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
+        _socialLinks.value = updatedLinks // Explicitly update to trigger UI recomposition
+        android.util.Log.d("UserViewModel", "addSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)
         updateUiState()
+        android.util.Log.d("UserViewModel", "addSocialLink: After updateUiState, _socialLinks.value = ${_socialLinks.value?.size}")
     }
 
     /**
@@ -397,6 +402,8 @@ class UserViewModel(context: Context) : ViewModel() {
         val updatedLinks = currentUser.socialLinks.filter { it.id != linkId }
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
+        _socialLinks.value = updatedLinks // Explicitly update to trigger UI recomposition
+        android.util.Log.d("UserViewModel", "deleteSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)
         updateUiState()

@@ -41,7 +41,16 @@ fun EditProfileScreen(
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
 
+    // Debug logging
+    LaunchedEffect(socialLinks) {
+        android.util.Log.d("EditProfileScreen", "socialLinks updated: ${socialLinks.size} links")
+        socialLinks.forEachIndexed { index, link ->
+            android.util.Log.d("EditProfileScreen", "  Link $index: ${link.platform.displayName} - ${link.label} - ${link.url} - visible=${link.isVisibleOnProfile}")
+        }
+    }
+
     LaunchedEffect(currentUser) {
+        android.util.Log.d("EditProfileScreen", "currentUser updated: ${currentUser.socialLinks.size} links in user")
         fullName = currentUser.fullName
         email = currentUser.email
         phone = currentUser.phone
