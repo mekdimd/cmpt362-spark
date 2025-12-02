@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.taptap.ui.analytics.AnalyticsScreen
 import com.taptap.ui.auth.ForgotPasswordScreen
 import com.taptap.ui.auth.LoginScreen
 import com.taptap.ui.auth.RegisterScreen
@@ -30,6 +31,7 @@ import com.taptap.ui.home.HomeScreen
 import com.taptap.ui.map.MapScreen
 import com.taptap.ui.profile.ProfileScreen
 import com.taptap.ui.theme.TapTapTheme
+import com.taptap.viewmodel.AnalyticsViewModel
 import com.taptap.viewmodel.AuthViewModel
 import com.taptap.viewmodel.ConnectionViewModel
 import com.taptap.viewmodel.UserViewModel
@@ -95,6 +97,7 @@ sealed class MainScreen(val route: String, val title: String, val icon: ImageVec
         MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
         fun createRoute(connectionId: String) = "connection_detail/$connectionId"
     }
+    object Analytics : MainScreen("analytics", "Analytics", Icons.Filled.Analytics)
 }
 
 @Composable
@@ -196,7 +199,7 @@ fun MainScreenContent(
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
-    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Profile)
+    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Analytics, MainScreen.Profile)
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
@@ -364,6 +367,12 @@ fun MainScreenContent(
                             }
                         )
                     }
+                }
+
+                composable(MainScreen.Analytics.route) {
+                    AnalyticsScreen(
+                        analyticsViewModel = AnalyticsViewModel()
+                    )
                 }
             }
         }
