@@ -188,7 +188,8 @@ fun ConnectionDetailScreen(
                     }
 
                     // Social media section
-                    if (connection.connectedUserSocialLinks.isNotEmpty()) {
+                    val visibleSocialLinks = connection.connectedUserSocialLinks.filter { it.isVisibleOnProfile }
+                    if (visibleSocialLinks.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
@@ -197,7 +198,7 @@ fun ConnectionDetailScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        connection.connectedUserSocialLinks.forEach { socialLink ->
+                        visibleSocialLinks.forEach { socialLink ->
                             ContactInfoItem(
                                 icon = socialLink.platform.icon,
                                 label = socialLink.label.ifEmpty { socialLink.platform.displayName },

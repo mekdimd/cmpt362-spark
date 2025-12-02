@@ -178,10 +178,10 @@ fun HomeScreen(
                     )
                 }
 
-                // Social Links - Show pinned links
-                val pinnedLinks = currentUser.socialLinks.filter { it.isPinned }
+                // Social Links - Show visible links
+                val visibleLinks = currentUser.socialLinks.filter { it.isVisibleOnProfile }
 
-                if (pinnedLinks.isNotEmpty()) {
+                if (visibleLinks.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
@@ -189,14 +189,14 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        pinnedLinks.take(4).forEachIndexed { index, link ->
+                        visibleLinks.take(4).forEachIndexed { index, link ->
                             if (index > 0) Spacer(modifier = Modifier.width(8.dp))
                             AssistChip(
                                 onClick = { },
                                 label = { Text(link.label) },
                                 leadingIcon = {
                                     Icon(
-                                        getSocialIcon(link.platform),
+                                        link.platform.icon,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp)
                                     )

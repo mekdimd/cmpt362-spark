@@ -14,7 +14,7 @@ data class SocialLink(
     val platform: SocialPlatform = SocialPlatform.CUSTOM,
     val url: String = "",
     val label: String = "",
-    val isPinned: Boolean = false,
+    val isVisibleOnProfile: Boolean = true,
     val order: Int = 0
 ) {
     /**
@@ -34,8 +34,6 @@ data class SocialLink(
         YOUTUBE("YouTube", Icons.Default.PlayArrow, "https://youtube.com/@", "channel"),
         TIKTOK("TikTok", Icons.Default.MusicNote, "https://tiktok.com/@", "username"),
         WEBSITE("Website", Icons.Default.Language, "https://", "example.com"),
-        EMAIL("Email", Icons.Default.Email, "mailto:", "email@example.com"),
-        PHONE("Phone", Icons.Default.Phone, "tel:", "1234567890"),
         CUSTOM("Custom", Icons.Default.Link, "", "URL");
 
         companion object {
@@ -52,13 +50,6 @@ data class SocialLink(
                     return input
                 }
 
-                // For email and phone, check if prefix is already there
-                if (platform == EMAIL && input.startsWith("mailto:")) {
-                    return input
-                }
-                if (platform == PHONE && input.startsWith("tel:")) {
-                    return input
-                }
 
                 // Clean up handle (remove @ if present for social platforms)
                 val cleanHandle = when (platform) {
@@ -77,7 +68,7 @@ data class SocialLink(
         json.put("platform", platform.name)
         json.put("label", label)
         json.put("url", url)
-        json.put("isPinned", isPinned)
+        json.put("isVisibleOnProfile", isVisibleOnProfile)
         json.put("order", order)
         return json
     }
@@ -88,7 +79,7 @@ data class SocialLink(
             "platform" to platform.name,
             "label" to label,
             "url" to url,
-            "isPinned" to isPinned,
+            "isVisibleOnProfile" to isVisibleOnProfile,
             "order" to order
         )
     }
@@ -100,7 +91,7 @@ data class SocialLink(
                 platform = SocialPlatform.fromString(json.optString("platform", "CUSTOM")),
                 label = json.optString("label", ""),
                 url = json.optString("url", ""),
-                isPinned = json.optBoolean("isPinned", false),
+                isVisibleOnProfile = json.optBoolean("isVisibleOnProfile", true),
                 order = json.optInt("order", 0)
             )
         }
@@ -111,7 +102,7 @@ data class SocialLink(
                 platform = SocialPlatform.fromString(map["platform"] as? String ?: "CUSTOM"),
                 label = map["label"] as? String ?: "",
                 url = map["url"] as? String ?: "",
-                isPinned = map["isPinned"] as? Boolean ?: false,
+                isVisibleOnProfile = map["isVisibleOnProfile"] as? Boolean ?: true,
                 order = (map["order"] as? Long)?.toInt() ?: 0
             )
         }

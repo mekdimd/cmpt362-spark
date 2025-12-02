@@ -911,8 +911,8 @@ fun ConfirmConnectionDialog(
                             DetailRow(Icons.Default.Phone, user.phone)
                         }
 
-                        // Display social links from modern structure
-                        user.socialLinks.forEach { link ->
+                        // Display social links from modern structure (only visible ones)
+                        user.socialLinks.filter { it.isVisibleOnProfile }.forEach { link ->
                             DetailRow(link.platform.icon, "${link.label}: ${link.url}")
                         }
 

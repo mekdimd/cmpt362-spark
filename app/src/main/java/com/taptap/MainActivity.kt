@@ -241,12 +241,26 @@ fun MainScreenContent(
                         label = { Text(screen.title) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            // If already on this screen, pop to start destination
+                            val isCurrentScreen = currentDestination?.route == screen.route
+
+                            if (isCurrentScreen) {
+                                // Navigate to the home of this section (pop to self)
+                                navController.navigate(screen.route) {
+                                    popUpTo(screen.route) {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
+                            } else {
+                                // Normal navigation
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         }
                     )

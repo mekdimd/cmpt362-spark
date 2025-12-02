@@ -356,16 +356,31 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Toggle pin status of a social link
+     * Toggle visibility of a social link on profile
      */
-    fun togglePin(linkId: String) {
+    fun toggleVisibility(linkId: String) {
         val currentUser = _currentUser.value ?: return
         val updatedLinks = currentUser.socialLinks.map { link ->
             if (link.id == linkId) {
-                link.copy(isPinned = !link.isPinned)
+                link.copy(isVisibleOnProfile = !link.isVisibleOnProfile)
             } else {
                 link
             }
+        }
+        val updatedUser = currentUser.copy(socialLinks = updatedLinks)
+        _currentUser.value = updatedUser
+        saveUserToLocalStorage(updatedUser)
+        saveUserToFirestore(updatedUser)
+        updateUiState()
+    }
+
+    /**
+     * Update a social link
+     */
+    fun updateSocialLink(linkId: String, updatedLink: SocialLink) {
+        val currentUser = _currentUser.value ?: return
+        val updatedLinks = currentUser.socialLinks.map { link ->
+            if (link.id == linkId) updatedLink else link
         }
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
