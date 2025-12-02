@@ -82,7 +82,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Privacy Section
-            SettingsSection(title = "Privacy") {
+            SettingsSection(title = "Privacy & Notifications") {
                 SettingsSwitchRow(
                     icon = Icons.Default.LocationOn,
                     title = "Share Location",
@@ -92,60 +92,24 @@ fun SettingsScreen(
                         userViewModel.toggleLocationSharing()
                     }
                 )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // General Section
-            SettingsSection(title = "General") {
-                SettingsRow(
-                    icon = Icons.Default.AccountCircle,
-                    title = "Account",
-                    subtitle = "Manage your account settings",
-                    onClick = { /* TODO */ }
-                )
 
                 SettingsDivider()
 
-                SettingsRow(
+                SettingsSwitchRow(
                     icon = Icons.Default.Notifications,
-                    title = "Notifications",
-                    subtitle = "Push notifications, email, and more",
-                    onClick = { /* TODO */ }
-                )
-
-                SettingsDivider()
-
-                SettingsRow(
-                    icon = Icons.Default.Lock,
-                    title = "Privacy & Safety",
-                    subtitle = "Control your privacy and data",
-                    onClick = { /* TODO */ }
-                )
-
-                SettingsDivider()
-
-                SettingsRow(
-                    icon = Icons.Default.DarkMode,
-                    title = "Appearance",
-                    subtitle = "Customize your app theme",
-                    onClick = { /* TODO */ }
+                    title = "Push Notifications",
+                    subtitle = "Get notified about new connections",
+                    checked = settings.isPushNotificationsEnabled,
+                    onCheckedChange = {
+                        userViewModel.updateNotificationPreference(!settings.isPushNotificationsEnabled)
+                    }
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // Support Section
-            SettingsSection(title = "Support & About") {
-                SettingsRow(
-                    icon = Icons.Default.Help,
-                    title = "Help Center",
-                    subtitle = "Get help with Spark",
-                    onClick = { /* TODO */ }
-                )
-
-                SettingsDivider()
-
+            SettingsSection(title = "Support") {
                 SettingsRow(
                     icon = Icons.Default.Info,
                     title = "About",

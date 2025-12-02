@@ -178,65 +178,30 @@ fun HomeScreen(
                     )
                 }
 
-                // Social Links - Show pinned links from new structure
-                val pinnedLinks = currentUser.socialLinks.filter { it.isPinned }
-                val hasNewSocialLinks = pinnedLinks.isNotEmpty()
+                // Social Links - Show visible links
+                val visibleLinks = currentUser.socialLinks.filter { it.isVisibleOnProfile }
 
-                // Fallback to legacy fields if no new links
-                @Suppress("DEPRECATION")
-                val hasLegacySocials = currentUser.linkedIn.isNotEmpty() ||
-                                      currentUser.github.isNotEmpty() ||
-                                      currentUser.instagram.isNotEmpty() ||
-                                      currentUser.website.isNotEmpty()
-
-                if (hasNewSocialLinks || hasLegacySocials) {
+                if (visibleLinks.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    if (hasNewSocialLinks) {
-                        // Show pinned links with proper icons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            pinnedLinks.take(4).forEachIndexed { index, link ->
-                                if (index > 0) Spacer(modifier = Modifier.width(8.dp))
-                                AssistChip(
-                                    onClick = { },
-                                    label = { Text(link.label) },
-                                    leadingIcon = {
-                                        Icon(
-                                            getSocialIcon(link.platform),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    } else {
-                        // Legacy display
-                        @Suppress("DEPRECATION")
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (currentUser.linkedIn.isNotEmpty()) {
-                                AssistChip(
-                                    onClick = { },
-                                    label = { Text("LinkedIn") },
-                                    leadingIcon = { Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            if (currentUser.github.isNotEmpty()) {
-                                AssistChip(
-                                    onClick = { },
-                                    label = { Text("GitHub") },
-                                    leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                )
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        visibleLinks.take(4).forEachIndexed { index, link ->
+                            if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+                            AssistChip(
+                                onClick = { },
+                                label = { Text(link.label) },
+                                leadingIcon = {
+                                    Icon(
+                                        link.platform.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -517,12 +482,9 @@ private fun processReceivedData(
             fullName = data.optString("fullName", ""),
             email = data.optString("email", ""),
             phone = data.optString("phone", ""),
-            linkedIn = data.optString("linkedIn", ""),
-            github = data.optString("github", ""),
-            instagram = data.optString("instagram", ""),
-            website = data.optString("website", ""),
             description = data.optString("description", ""),
-            location = data.optString("location", "")
+            location = data.optString("location", ""),
+            socialLinks = emptyList() // Will be parsed if available
         )
     } catch (e: Exception) {
         Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()

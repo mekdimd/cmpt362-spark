@@ -910,18 +910,12 @@ fun ConfirmConnectionDialog(
                         if (user.phone.isNotEmpty()) {
                             DetailRow(Icons.Default.Phone, user.phone)
                         }
-                        if (user.linkedIn.isNotEmpty()) {
-                            DetailRow(Icons.Default.Link, "LinkedIn: ${user.linkedIn}")
+
+                        // Display social links from modern structure (only visible ones)
+                        user.socialLinks.filter { it.isVisibleOnProfile }.forEach { link ->
+                            DetailRow(link.platform.icon, "${link.label}: ${link.url}")
                         }
-                        if (user.github.isNotEmpty()) {
-                            DetailRow(Icons.Default.Code, "GitHub: ${user.github}")
-                        }
-                        if (user.instagram.isNotEmpty()) {
-                            DetailRow(Icons.Default.Photo, "Instagram: ${user.instagram}")
-                        }
-                        if (user.website.isNotEmpty()) {
-                            DetailRow(Icons.Default.Language, "Website: ${user.website}")
-                        }
+
                         if (user.description.isNotEmpty()) {
                             DetailRow(Icons.Default.Description, user.description)
                         }
@@ -1058,12 +1052,9 @@ private fun processReceivedData(
             fullName = data.optString("fullName", ""),
             email = data.optString("email", ""),
             phone = data.optString("phone", ""),
-            linkedIn = data.optString("linkedIn", ""),
-            github = data.optString("github", ""),
-            instagram = data.optString("instagram", ""),
-            website = data.optString("website", ""),
             description = data.optString("description", ""),
-            location = data.optString("location", "")
+            location = data.optString("location", ""),
+            socialLinks = emptyList() // Will be parsed if available in JSON
         )
     } catch (e: Exception) {
         Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()

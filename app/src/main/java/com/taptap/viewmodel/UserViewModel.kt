@@ -57,14 +57,17 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     private fun updateUiState() {
+        val linksFromUser = _currentUser.value?.socialLinks ?: emptyList()
+        android.util.Log.d("UserViewModel", "updateUiState: currentUser has ${linksFromUser.size} links")
         _uiState.value = UserUiState(
             isLoading = _isLoading.value ?: false,
             currentUser = _currentUser.value,
             settings = _userSettings.value ?: UserSettings(),
-            socialLinks = _currentUser.value?.socialLinks ?: emptyList(),
+            socialLinks = linksFromUser,
             error = _errorMessage.value
         )
-        _socialLinks.value = _currentUser.value?.socialLinks ?: emptyList()
+        _socialLinks.value = linksFromUser
+        android.util.Log.d("UserViewModel", "updateUiState: _socialLinks.value set to ${_socialLinks.value?.size} links")
     }
 
     private fun loadUserSettings() {
@@ -137,12 +140,9 @@ class UserViewModel(context: Context) : ViewModel() {
                             fullName = displayName,
                             email = email,
                             phone = "",
-                            linkedIn = "",
-                            github = "",
-                            instagram = "",
-                            website = "",
                             description = "",
-                            location = ""
+                            location = "",
+                            socialLinks = emptyList()
                         )
                         _currentUser.value = newUser
                         saveUserToLocalStorage(newUser)
@@ -204,40 +204,6 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Main save function that updates the global user data
-     * Saves to both local storage and Firestore
-     */
-    fun saveUserProfile(
-        fullName: String,
-        phone: String,
-        email: String,
-        linkedIn: String,
-        github: String,
-        instagram: String,
-        website: String,
-        description: String,
-        location: String
-    ) {
-        val current = _currentUser.value
-        if (current != null) {
-            val updatedUser = current.copy(
-                fullName = fullName,
-                phone = phone,
-                email = email,
-                linkedIn = linkedIn,
-                github = github,
-                instagram = instagram,
-                website = website,
-                description = description,
-                location = location
-            )
-            _currentUser.value = updatedUser
-            saveUserToLocalStorage(updatedUser)
-            saveUserToFirestore(updatedUser)
-        }
-    }
-
-    /**
      * Update user's last seen status
      */
     fun updateLastSeen(lastSeen: String) {
@@ -284,10 +250,7 @@ class UserViewModel(context: Context) : ViewModel() {
      * Get user profile as JSON for NFC/QR sharing
      */
     fun getUserProfileJson(): JSONObject {
-        val user = _currentUser.value
-        if (user == null) {
-            return JSONObject()
-        }
+        val user = _currentUser.value ?: return JSONObject()
 
         val json = JSONObject()
         json.put("app_id", "com.taptap")
@@ -297,12 +260,9 @@ class UserViewModel(context: Context) : ViewModel() {
         json.put("fullName", user.fullName)
         json.put("phone", user.phone)
         json.put("email", user.email)
-        json.put("linkedIn", user.linkedIn)
-        json.put("github", user.github)
-        json.put("instagram", user.instagram)
-        json.put("website", user.website)
         json.put("description", user.description)
         json.put("location", user.location)
+        json.put("socialLinks", SocialLink.listToJsonArray(user.socialLinks))
         json.put("timestamp", System.currentTimeMillis())
 
         return json
@@ -316,7 +276,7 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Save user profile with new social links structure
+     * Save user profile with social links
      */
     fun saveUserProfileWithLinks(
         fullName: String,
@@ -328,23 +288,13 @@ class UserViewModel(context: Context) : ViewModel() {
     ) {
         val current = _currentUser.value
         if (current != null) {
-            // Maintain backward compatibility by extracting legacy fields
-            val linkedIn = socialLinks.find { it.platform == SocialLink.SocialPlatform.LINKEDIN }?.url ?: ""
-            val github = socialLinks.find { it.platform == SocialLink.SocialPlatform.GITHUB }?.url ?: ""
-            val instagram = socialLinks.find { it.platform == SocialLink.SocialPlatform.INSTAGRAM }?.url ?: ""
-            val website = socialLinks.find { it.platform == SocialLink.SocialPlatform.WEBSITE }?.url ?: ""
-
             val updatedUser = current.copy(
                 fullName = fullName,
                 phone = phone,
                 email = email,
                 description = description,
                 location = location,
-                socialLinks = socialLinks,
-                linkedIn = linkedIn,
-                github = github,
-                instagram = instagram,
-                website = website
+                socialLinks = socialLinks
             )
             _currentUser.value = updatedUser
             saveUserToLocalStorage(updatedUser)
@@ -373,7 +323,7 @@ class UserViewModel(context: Context) : ViewModel() {
         val current = _userSettings.value ?: UserSettings()
         val updated = current.copy(
             userId = _currentUser.value?.userId ?: "",
-            notificationsEnabled = enabled
+            isPushNotificationsEnabled = enabled
         )
         saveUserSettings(updated)
         updateUiState()
@@ -397,7 +347,31 @@ class UserViewModel(context: Context) : ViewModel() {
      */
     fun addSocialLink(link: SocialLink) {
         val currentUser = _currentUser.value ?: return
+        android.util.Log.d("UserViewModel", "addSocialLink: currentUser has ${currentUser.socialLinks.size} links")
         val updatedLinks = currentUser.socialLinks + link
+        android.util.Log.d("UserViewModel", "addSocialLink: updatedLinks has ${updatedLinks.size} links")
+        val updatedUser = currentUser.copy(socialLinks = updatedLinks)
+        _currentUser.value = updatedUser
+        _socialLinks.value = updatedLinks // Explicitly update to trigger UI recomposition
+        android.util.Log.d("UserViewModel", "addSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
+        saveUserToLocalStorage(updatedUser)
+        saveUserToFirestore(updatedUser)
+        updateUiState()
+        android.util.Log.d("UserViewModel", "addSocialLink: After updateUiState, _socialLinks.value = ${_socialLinks.value?.size}")
+    }
+
+    /**
+     * Toggle visibility of a social link on profile
+     */
+    fun toggleVisibility(linkId: String) {
+        val currentUser = _currentUser.value ?: return
+        val updatedLinks = currentUser.socialLinks.map { link ->
+            if (link.id == linkId) {
+                link.copy(isVisibleOnProfile = !link.isVisibleOnProfile)
+            } else {
+                link
+            }
+        }
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
         saveUserToLocalStorage(updatedUser)
@@ -406,16 +380,12 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Toggle pin status of a social link
+     * Update a social link
      */
-    fun togglePin(linkId: String) {
+    fun updateSocialLink(linkId: String, updatedLink: SocialLink) {
         val currentUser = _currentUser.value ?: return
         val updatedLinks = currentUser.socialLinks.map { link ->
-            if (link.id == linkId) {
-                link.copy(isPinned = !link.isPinned)
-            } else {
-                link
-            }
+            if (link.id == linkId) updatedLink else link
         }
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
@@ -432,6 +402,8 @@ class UserViewModel(context: Context) : ViewModel() {
         val updatedLinks = currentUser.socialLinks.filter { it.id != linkId }
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
+        _socialLinks.value = updatedLinks // Explicitly update to trigger UI recomposition
+        android.util.Log.d("UserViewModel", "deleteSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)
         updateUiState()
