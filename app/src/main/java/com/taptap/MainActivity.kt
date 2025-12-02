@@ -411,29 +411,26 @@ fun MainScreenContent(
                             Log.d("MainActivity", "Current destination: ${currentDestination?.route}")
                             Log.d("MainActivity", "Target route: ${screen.route}")
 
-                            // If already on this screen, pop to start destination
+                            // If already on this screen, do nothing
                             val isCurrentScreen = currentDestination?.route == screen.route
                             Log.d("MainActivity", "Is current screen: $isCurrentScreen")
 
                             if (isCurrentScreen) {
-                                Log.d("MainActivity", "→ Refreshing current screen (pop and recreate)")
-                                // Navigate to the home of this section (pop to self)
-                                navController.navigate(screen.route) {
-                                    popUpTo(screen.route) {
-                                        inclusive = true
-                                    }
-                                    launchSingleTop = true
-                                }
+                                Log.d("MainActivity", "→ Already on this screen, ignoring click")
                             } else {
                                 Log.d("MainActivity", "→ Navigating to new screen")
-                                // Normal navigation
+                                // Simple navigation - pop everything except start, then navigate
                                 try {
                                     navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
+                                        // Pop up to the start destination (Home)
+                                        popUpTo(MainScreen.Home.route) {
+                                            // Don't pop Home itself
+                                            inclusive = false
+                                            saveState = false
                                         }
+                                        // Avoid multiple copies
                                         launchSingleTop = true
-                                        restoreState = true
+                                        restoreState = false
                                     }
                                     Log.d("MainActivity", "✓ Navigation completed successfully")
                                 } catch (e: Exception) {
@@ -463,7 +460,6 @@ fun MainScreenContent(
                             Log.d("MainActivity", "Navigating to Dashboard with user: ${scannedUser.fullName}, method: $scanMethod")
                             navController.navigate(MainScreen.Dashboard.route) {
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         }
                     )
