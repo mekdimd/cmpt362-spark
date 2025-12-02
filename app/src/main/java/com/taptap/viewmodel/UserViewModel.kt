@@ -349,11 +349,53 @@ class UserViewModel(context: Context) : ViewModel() {
         val current = _userSettings.value ?: UserSettings()
         val updated = current.copy(
             userId = _currentUser.value?.userId ?: "",
-            followUpReminderDays = days
+            followUpReminderValue = days,
+            followUpReminderUnit = "days"
         )
         saveUserSettings(updated)
         updateUiState()
         android.util.Log.d("UserViewModel", "Follow-up reminder days updated to: $days")
+    }
+
+    /**
+     * Update follow-up reminder timing with value and unit
+     */
+    fun updateFollowUpReminderTiming(value: Int, unit: String) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            followUpReminderValue = value,
+            followUpReminderUnit = unit
+        )
+        saveUserSettings(updated)
+        updateUiState()
+        android.util.Log.d("UserViewModel", "Follow-up reminder timing updated to: $value $unit")
+    }
+
+    /**
+     * Update connection notification preference
+     */
+    fun updateConnectionNotificationPreference(enabled: Boolean) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            isConnectionNotificationEnabled = enabled
+        )
+        saveUserSettings(updated)
+        updateUiState()
+    }
+
+    /**
+     * Update follow-up notification preference
+     */
+    fun updateFollowUpNotificationPreference(enabled: Boolean) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            isFollowUpNotificationEnabled = enabled
+        )
+        saveUserSettings(updated)
+        updateUiState()
     }
 
     /**
@@ -438,5 +480,3 @@ class UserViewModel(context: Context) : ViewModel() {
         clearUserData()
     }
 }
-
-

@@ -19,6 +19,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -27,6 +28,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.taptap.notification.NotificationHelper
 import com.taptap.ui.auth.ForgotPasswordScreen
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.taptap.ui.auth.LoginScreen
 import com.taptap.ui.auth.RegisterScreen
 import com.taptap.ui.connection.ConnectionDetailScreen
@@ -126,8 +129,34 @@ class MainActivity : ComponentActivity() {
 
                 Log.d("MainActivity", "Opening connection for user: $userName (ID: $userId)")
 
-                // The navigation will be handled by the DashboardScreen or ConnectionDetailScreen
-                // when it observes the intent change
+                if (userId != null) {
+                    // Find the connection with this user ID using lifecycleScope
+                    lifecycleScope.launch {
+                        try {
+                            // Load connections first if not loaded
+                            val currentUserId = authViewModel.currentUser.value?.uid
+                            if (currentUserId != null) {
+                                connectionViewModel.loadConnections(currentUserId)
+                            }
+
+                            // Wait a bit for connections to load
+                            delay(500)
+
+                            val connections = connectionViewModel.connections.value ?: emptyList()
+                            val connection = connections.find { it.connectedUserId == userId }
+
+                            if (connection != null) {
+                                Log.d("MainActivity", "Found connection ID: ${connection.connectionId}")
+                                // Store pending connection ID to navigate after UI is ready
+                                // You'll handle this in MainScreenContent
+                            } else {
+                                Log.w("MainActivity", "Connection not found for user ID: $userId")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Error handling deep link", e)
+                        }
+                    }
+                }
             }
         }
     }
@@ -253,9 +282,52 @@ fun MainScreenContent(
 ) {
     val navController = rememberNavController()
     val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Profile)
+    val currentUser by authViewModel.currentUser.observeAsState()
+    val connections by connectionViewModel.connections.observeAsState(emptyList())
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
+
+    // Handle deep link navigation from notifications
+    LaunchedEffect(currentIntent) {
+        currentIntent?.data?.let { uri ->
+            if (uri.scheme == "myapp" && uri.host == "connection") {
+                val userId = uri.pathSegments.getOrNull(0)
+                if (userId != null) {
+                    // Load connections if not already loaded
+                    currentUser?.uid?.let { currentUserId ->
+                        if (connections.isEmpty()) {
+                            connectionViewModel.loadConnections(currentUserId)
+                        }
+
+                        // Wait for connections to load
+                        delay(500)
+
+                        // Find the connection
+                        val connection = connectionViewModel.connections.value?.find {
+                            it.connectedUserId == userId
+                        }
+
+                        if (connection != null) {
+                            Log.d("MainScreenContent", "Navigating to connection: ${connection.connectionId}")
+                            // Navigate to the connection detail screen
+                            navController.navigate(
+                                MainScreen.ConnectionDetail.createRoute(connection.connectionId)
+                            ) {
+                                // Clear the back stack to dashboard
+                                popUpTo(MainScreen.Dashboard.route) {
+                                    inclusive = false
+                                }
+                                launchSingleTop = true
+                            }
+                        } else {
+                            Log.w("MainScreenContent", "Connection not found for userId: $userId")
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Check if we're on the detail screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()

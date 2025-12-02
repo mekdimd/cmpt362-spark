@@ -82,7 +82,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Privacy Section
-            SettingsSection(title = "Privacy & Notifications") {
+            SettingsSection(title = "Privacy") {
                 SettingsSwitchRow(
                     icon = Icons.Default.LocationOn,
                     title = "Share Location",
@@ -92,30 +92,64 @@ fun SettingsScreen(
                         userViewModel.toggleLocationSharing()
                     }
                 )
+            }
 
-                SettingsDivider()
+            Spacer(modifier = Modifier.height(24.dp))
 
+            // Notifications Section (NEW - Dedicated section)
+            SettingsSection(title = "Notifications") {
                 SettingsSwitchRow(
                     icon = Icons.Default.Notifications,
-                    title = "Push Notifications",
-                    subtitle = "Get notified about new connections",
+                    title = "Master Notifications",
+                    subtitle = "Enable all push notifications",
                     checked = settings.isPushNotificationsEnabled,
                     onCheckedChange = {
                         userViewModel.updateNotificationPreference(!settings.isPushNotificationsEnabled)
                     }
                 )
 
-                SettingsDivider()
+                // Only show individual toggles if master is enabled
+                if (settings.isPushNotificationsEnabled) {
+                    SettingsDivider()
 
-                FollowUpReminderSlider(
-                    icon = Icons.Default.Schedule,
-                    title = "Follow-up Reminder",
-                    subtitle = "Days until follow-up notification",
-                    currentDays = settings.followUpReminderDays,
-                    onDaysChange = { days ->
-                        userViewModel.updateFollowUpReminderDays(days)
+                    SettingsSwitchRow(
+                        icon = Icons.Default.PersonAdd,
+                        title = "Connection Notifications",
+                        subtitle = "Get notified when you connect with someone",
+                        checked = settings.isConnectionNotificationEnabled,
+                        onCheckedChange = {
+                            userViewModel.updateConnectionNotificationPreference(!settings.isConnectionNotificationEnabled)
+                        }
+                    )
+
+                    SettingsDivider()
+
+                    SettingsSwitchRow(
+                        icon = Icons.Default.Schedule,
+                        title = "Follow-up Reminders",
+                        subtitle = "Get reminded to reconnect with people",
+                        checked = settings.isFollowUpNotificationEnabled,
+                        onCheckedChange = {
+                            userViewModel.updateFollowUpNotificationPreference(!settings.isFollowUpNotificationEnabled)
+                        }
+                    )
+
+                    // Only show timing controls if follow-up is enabled
+                    if (settings.isFollowUpNotificationEnabled) {
+                        SettingsDivider()
+
+                        FollowUpReminderConfig(
+                            icon = Icons.Default.Timer,
+                            title = "Follow-up Timing",
+                            subtitle = "When to send reminders",
+                            currentValue = settings.followUpReminderValue,
+                            currentUnit = settings.followUpReminderUnit,
+                            onConfigChange = { value, unit ->
+                                userViewModel.updateFollowUpReminderTiming(value, unit)
+                            }
+                        )
                     }
-                )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -445,3 +479,134 @@ fun FollowUpReminderSlider(
     }
 }
 
+@Composable
+fun FollowUpReminderConfig(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    currentValue: Int,
+    currentUnit: String,
+    onConfigChange: (Int, String) -> Unit
+) {
+    var selectedUnit by remember(currentUnit) { mutableStateOf(currentUnit) }
+    var sliderValue by remember(currentValue, selectedUnit) { mutableStateOf(currentValue.toFloat()) }
+
+    // Define ranges based on unit
+    val (minValue, maxValue, steps) = when (selectedUnit) {
+        "minutes" -> Triple(1f, 60f, 58) // 1-60 minutes
+        "days" -> Triple(1f, 90f, 88) // 1-90 days
+        "months" -> Triple(1f, 12f, 10) // 1-12 months
+        else -> Triple(1f, 90f, 88)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "${sliderValue.toInt()} ${selectedUnit}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Unit selector chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("minutes", "days", "months").forEach { unit ->
+                FilterChip(
+                    selected = selectedUnit == unit,
+                    onClick = {
+                        selectedUnit = unit
+                        // Reset slider to reasonable default for new unit
+                        sliderValue = when (unit) {
+                            "minutes" -> 5f
+                            "days" -> 30f
+                            "months" -> 1f
+                            else -> 30f
+                        }
+                        onConfigChange(sliderValue.toInt(), unit)
+                    },
+                    label = {
+                        Text(
+                            unit.capitalize(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Slider
+        Slider(
+            value = sliderValue,
+            onValueChange = {
+                sliderValue = it
+                onConfigChange(it.toInt(), selectedUnit)
+            },
+            valueRange = minValue..maxValue,
+            steps = steps,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp)
+        )
+
+        // Range labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "${minValue.toInt()} ${selectedUnit}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${maxValue.toInt()} ${selectedUnit}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}

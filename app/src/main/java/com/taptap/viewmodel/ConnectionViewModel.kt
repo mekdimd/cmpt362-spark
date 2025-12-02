@@ -196,16 +196,25 @@ class ConnectionViewModel : ViewModel() {
                         // Create reverse connection (bidirectional)
                         createReverseConnection(connectedUser.userId, userId, connectionMethod)
 
-                        // Show connection notification
-                        notificationHelper.showConnectionNotification(
-                            connectionId = connectionId,
-                            userId = connectedUser.userId,
-                            userName = connectedUser.fullName,
-                            userEmail = connectedUser.email,
-                            userPhone = connectedUser.phone
-                        )
+                        // Check user settings before showing connection notification
+                        viewModelScope.launch {
+                            val settingsResult = userRepository.getUserSettings(userId)
+                            val settings = settingsResult.getOrNull()
 
-                        // Schedule follow-up reminder
+                            if (settings?.isPushNotificationsEnabled == true &&
+                                settings.isConnectionNotificationEnabled) {
+                                // Show connection notification
+                                notificationHelper.showConnectionNotification(
+                                    connectionId = connectionId,
+                                    userId = connectedUser.userId,
+                                    userName = connectedUser.fullName,
+                                    userEmail = connectedUser.email,
+                                    userPhone = connectedUser.phone
+                                )
+                            }
+                        }
+
+                        // Schedule follow-up reminder (checks settings internally)
                         val connectionWithId = connection.copy(connectionId = connectionId)
                         scheduleFollowUpReminder(connectionWithId)
 
@@ -282,16 +291,25 @@ class ConnectionViewModel : ViewModel() {
                     // Create reverse connection (bidirectional)
                     createReverseConnection(connectedUser.userId, userId, connectionMethod)
 
-                    // Show connection notification
-                    notificationHelper.showConnectionNotification(
-                        connectionId = connectionId,
-                        userId = connectedUser.userId,
-                        userName = connectedUser.fullName,
-                        userEmail = connectedUser.email,
-                        userPhone = connectedUser.phone
-                    )
+                    // Check user settings before showing connection notification
+                    viewModelScope.launch {
+                        val settingsResult = userRepository.getUserSettings(userId)
+                        val settings = settingsResult.getOrNull()
 
-                    // Schedule follow-up reminder
+                        if (settings?.isPushNotificationsEnabled == true &&
+                            settings.isConnectionNotificationEnabled) {
+                            // Show connection notification
+                            notificationHelper.showConnectionNotification(
+                                connectionId = connectionId,
+                                userId = connectedUser.userId,
+                                userName = connectedUser.fullName,
+                                userEmail = connectedUser.email,
+                                userPhone = connectedUser.phone
+                            )
+                        }
+                    }
+
+                    // Schedule follow-up reminder (checks settings internally)
                     val connectionWithId = connection.copy(connectionId = connectionId)
                     scheduleFollowUpReminder(connectionWithId)
 
@@ -309,21 +327,27 @@ class ConnectionViewModel : ViewModel() {
 
     /**
      * Schedule a follow-up reminder for a connection
-     * Uses user's settings to determine delay
+     * Uses user's settings to determine delay and checks if enabled
      */
     private fun scheduleFollowUpReminder(connection: Connection) {
         viewModelScope.launch {
             try {
-                // Fetch user settings to get follow-up delay
+                // Fetch user settings
                 val settingsResult = userRepository.getUserSettings(connection.userId)
-                val delayDays = if (settingsResult.isSuccess) {
-                    settingsResult.getOrNull()?.followUpReminderDays ?: FollowUpScheduler.DEFAULT_FOLLOW_UP_DAYS
-                } else {
-                    FollowUpScheduler.DEFAULT_FOLLOW_UP_DAYS
+                val settings = settingsResult.getOrNull()
+
+                // Only schedule if master notifications AND follow-up notifications are enabled
+                if (settings?.isPushNotificationsEnabled != true ||
+                    settings.isFollowUpNotificationEnabled != true) {
+                    Log.d("ConnectionViewModel", "Follow-up notifications disabled, skipping schedule")
+                    return@launch
                 }
 
-                Log.d("ConnectionViewModel", "Scheduling follow-up for ${connection.connectedUserName} in $delayDays days")
-                followUpScheduler.scheduleFollowUpReminder(connection, delayDays)
+                val delayValue = settings.followUpReminderValue
+                val delayUnit = settings.followUpReminderUnit
+
+                Log.d("ConnectionViewModel", "Scheduling follow-up for ${connection.connectedUserName} in $delayValue $delayUnit")
+                followUpScheduler.scheduleFollowUpReminder(connection, delayValue, delayUnit)
             } catch (e: Exception) {
                 Log.e("ConnectionViewModel", "Failed to schedule follow-up reminder", e)
             }

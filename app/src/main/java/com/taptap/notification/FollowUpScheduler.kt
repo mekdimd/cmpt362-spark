@@ -15,11 +15,12 @@ class FollowUpScheduler(
     }
 
     /**
-     * Schedule a follow-up reminder for a connection
+     * Schedule a follow-up reminder for a connection with custom time unit
      */
     fun scheduleFollowUpReminder(
         connection: Connection,
-        delayDays: Int = DEFAULT_FOLLOW_UP_DAYS
+        delayValue: Int,
+        delayUnit: String = "days"
     ) {
         Log.d(TAG, "═══════════════════════════════════════════════")
         Log.d(TAG, "📅 SCHEDULING FOLLOW-UP REMINDER")
@@ -28,7 +29,7 @@ class FollowUpScheduler(
         Log.d(TAG, "🆔 Connection ID: ${connection.connectionId}")
         Log.d(TAG, "📧 Email: ${connection.connectedUserEmail}")
         Log.d(TAG, "📱 Phone: ${connection.connectedUserPhone}")
-        Log.d(TAG, "⏰ Delay: $delayDays day(s)")
+        Log.d(TAG, "⏰ Delay: $delayValue $delayUnit")
         Log.d(TAG, "═══════════════════════════════════════════════")
 
         val inputData = Data.Builder()
@@ -41,8 +42,23 @@ class FollowUpScheduler(
 
         Log.d(TAG, "📦 Input data prepared for WorkManager")
 
+        // Convert time unit to TimeUnit for WorkManager
+        val timeUnit = when (delayUnit.lowercase()) {
+            "minutes" -> TimeUnit.MINUTES
+            "days" -> TimeUnit.DAYS
+            "months" -> TimeUnit.DAYS // Will multiply value by 30
+            else -> TimeUnit.DAYS
+        }
+
+        // Adjust delay value for months
+        val adjustedDelay = if (delayUnit.lowercase() == "months") {
+            delayValue * 30L
+        } else {
+            delayValue.toLong()
+        }
+
         val followUpWork = OneTimeWorkRequestBuilder<FollowUpWorker>()
-            .setInitialDelay(delayDays.toLong(), TimeUnit.DAYS)
+            .setInitialDelay(adjustedDelay, timeUnit)
             .setInputData(inputData)
             .setConstraints(
                 Constraints.Builder()
@@ -64,7 +80,7 @@ class FollowUpScheduler(
                 )
 
             Log.d(TAG, "✅ Follow-up work enqueued successfully!")
-            Log.d(TAG, "🔔 Notification will trigger in $delayDays day(s)")
+            Log.d(TAG, "🔔 Notification will trigger in $delayValue $delayUnit")
             Log.d(TAG, "═══════════════════════════════════════════════")
         } catch (e: Exception) {
             Log.e(TAG, "❌ ERROR: Failed to enqueue follow-up work", e)
@@ -138,4 +154,3 @@ class FollowUpScheduler(
         // This is left as an exercise based on your specific ConnectionRepository implementation
     }
 }
-

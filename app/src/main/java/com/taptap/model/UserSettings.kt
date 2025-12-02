@@ -9,14 +9,29 @@ data class UserSettings(
     val userId: String = "",
     val isLocationShared: Boolean = true,
     val isPushNotificationsEnabled: Boolean = true,
-    val followUpReminderDays: Int = 30 // Default 30 days for follow-up reminders
+    val isConnectionNotificationEnabled: Boolean = true, // New: Toggle for immediate connection notifications
+    val isFollowUpNotificationEnabled: Boolean = true, // New: Toggle for follow-up reminders
+    val followUpReminderValue: Int = 30, // The numeric value (e.g., 30)
+    val followUpReminderUnit: String = "days" // The unit: "minutes", "days", or "months"
 ) {
+    // Helper property for backward compatibility - converts to days
+    val followUpReminderDays: Int
+        get() = when (followUpReminderUnit) {
+            "minutes" -> 1 // Treat as 1 day minimum for day-based calculations
+            "days" -> followUpReminderValue
+            "months" -> followUpReminderValue * 30
+            else -> followUpReminderValue
+        }
     fun toMap(): Map<String, Any> {
         return hashMapOf(
             "userId" to userId,
             "isLocationShared" to isLocationShared,
             "isPushNotificationsEnabled" to isPushNotificationsEnabled,
-            "followUpReminderDays" to followUpReminderDays,
+            "isConnectionNotificationEnabled" to isConnectionNotificationEnabled,
+            "isFollowUpNotificationEnabled" to isFollowUpNotificationEnabled,
+            "followUpReminderValue" to followUpReminderValue,
+            "followUpReminderUnit" to followUpReminderUnit,
+            "followUpReminderDays" to followUpReminderDays, // For backward compatibility
             "updatedAt" to System.currentTimeMillis()
         )
     }
@@ -26,6 +41,10 @@ data class UserSettings(
         json.put("userId", userId)
         json.put("isLocationShared", isLocationShared)
         json.put("isPushNotificationsEnabled", isPushNotificationsEnabled)
+        json.put("isConnectionNotificationEnabled", isConnectionNotificationEnabled)
+        json.put("isFollowUpNotificationEnabled", isFollowUpNotificationEnabled)
+        json.put("followUpReminderValue", followUpReminderValue)
+        json.put("followUpReminderUnit", followUpReminderUnit)
         json.put("followUpReminderDays", followUpReminderDays)
         return json
     }
@@ -36,7 +55,11 @@ data class UserSettings(
                 userId = map["userId"] as? String ?: "",
                 isLocationShared = map["isLocationShared"] as? Boolean ?: true,
                 isPushNotificationsEnabled = map["isPushNotificationsEnabled"] as? Boolean ?: true,
-                followUpReminderDays = (map["followUpReminderDays"] as? Long)?.toInt() ?: 30
+                isConnectionNotificationEnabled = map["isConnectionNotificationEnabled"] as? Boolean ?: true,
+                isFollowUpNotificationEnabled = map["isFollowUpNotificationEnabled"] as? Boolean ?: true,
+                followUpReminderValue = (map["followUpReminderValue"] as? Long)?.toInt()
+                    ?: (map["followUpReminderDays"] as? Long)?.toInt() ?: 30, // Fallback to old field
+                followUpReminderUnit = map["followUpReminderUnit"] as? String ?: "days"
             )
         }
 
@@ -46,7 +69,14 @@ data class UserSettings(
                 userId = json.optString("userId", ""),
                 isLocationShared = json.optBoolean("isLocationShared", true),
                 isPushNotificationsEnabled = json.optBoolean("isPushNotificationsEnabled", true),
-                followUpReminderDays = json.optInt("followUpReminderDays", 30)
+                isConnectionNotificationEnabled = json.optBoolean("isConnectionNotificationEnabled", true),
+                isFollowUpNotificationEnabled = json.optBoolean("isFollowUpNotificationEnabled", true),
+                followUpReminderValue = if (json.has("followUpReminderValue")) {
+                    json.optInt("followUpReminderValue", 30)
+                } else {
+                    json.optInt("followUpReminderDays", 30)
+                },
+                followUpReminderUnit = json.optString("followUpReminderUnit", "days")
             )
         }
     }
