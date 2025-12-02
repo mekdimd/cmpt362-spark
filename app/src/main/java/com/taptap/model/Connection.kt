@@ -109,7 +109,7 @@ data class Connection(
             seconds < 60 -> "Just now"
             minutes < 60 -> "$minutes minute${if (minutes != 1L) "s" else ""} ago"
             hours < 24 -> "$hours hour${if (hours != 1L) "s" else ""} ago"
-            days == 1L -> "Yesterday at ${getTimeString()}"
+            days == 1L -> "Yesterday"
             days < 7 -> "$days days ago"
             else -> getFormattedDate()
         }
@@ -133,6 +133,7 @@ data class Connection(
                 latitude >= -90 && latitude <= 90 &&
                 longitude >= -180 && longitude <= 180
     }
+
 
     /**
      * Get LatLng for maps

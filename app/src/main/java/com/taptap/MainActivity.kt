@@ -1,6 +1,5 @@
 package com.taptap
 
-import android.Manifest
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Build
@@ -27,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.taptap.notification.NotificationHelper
+import com.taptap.ui.analytics.AnalyticsScreen
 import com.taptap.ui.auth.ForgotPasswordScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -38,6 +38,7 @@ import com.taptap.ui.home.HomeScreen
 import com.taptap.ui.map.MapScreen
 import com.taptap.ui.profile.ProfileScreen
 import com.taptap.ui.theme.TapTapTheme
+import com.taptap.viewmodel.AnalyticsViewModel
 import com.taptap.viewmodel.AuthViewModel
 import com.taptap.viewmodel.ConnectionViewModel
 import com.taptap.viewmodel.UserViewModel
@@ -179,6 +180,7 @@ sealed class MainScreen(val route: String, val title: String, val icon: ImageVec
         MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
         fun createRoute(connectionId: String) = "connection_detail/$connectionId"
     }
+    object Analytics : MainScreen("analytics", "Analytics", Icons.Filled.Analytics)
 }
 
 @Composable
@@ -283,6 +285,7 @@ fun MainScreenContent(
     val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Profile)
     val currentUser by authViewModel.currentUser.observeAsState()
     val connections by connectionViewModel.connections.observeAsState(emptyList())
+    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Analytics, MainScreen.Profile)
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
@@ -480,6 +483,12 @@ fun MainScreenContent(
                             }
                         )
                     }
+                }
+
+                composable(MainScreen.Analytics.route) {
+                    AnalyticsScreen(
+                        analyticsViewModel = AnalyticsViewModel()
+                    )
                 }
             }
         }
