@@ -2,6 +2,7 @@ package com.taptap.ui.connection
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -181,7 +182,7 @@ fun ConnectionDetailScreen(
                     }
 
                     val visibleSocialLinks = connection.connectedUserSocialLinks.filter { it.isVisibleOnProfile }
-                    android.util.Log.d("ConnectionDetailScreen", "Displaying social links: ${visibleSocialLinks.size} out of ${connection.connectedUserSocialLinks.size}")
+                    Log.d("ConnectionDetailScreen", "Displaying social links: ${visibleSocialLinks.size} out of ${connection.connectedUserSocialLinks.size}")
                     if (visibleSocialLinks.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -192,7 +193,7 @@ fun ConnectionDetailScreen(
                         )
 
                         visibleSocialLinks.forEachIndexed { index, socialLink ->
-                            android.util.Log.d("ConnectionDetailScreen", "  Displaying link $index: ${socialLink.label} - ${socialLink.url}")
+                            Log.d("ConnectionDetailScreen", "  Displaying link $index: ${socialLink.label} - ${socialLink.url}")
                             ContactInfoItem(
                                 icon = socialLink.platform.icon,
                                 label = socialLink.label.ifEmpty { socialLink.platform.displayName },

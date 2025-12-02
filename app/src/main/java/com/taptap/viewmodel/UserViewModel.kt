@@ -2,6 +2,7 @@ package com.taptap.viewmodel
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -54,16 +55,13 @@ class UserViewModel(context: Context) : ViewModel() {
         loadUserFromStorage()
         loadUserSettings()
         _uiState.value = UserUiState()
-
-        android.util.Log.d("UserViewModel", "════════════════════════════════════════════")
-        android.util.Log.d("UserViewModel", "UserViewModel INITIALIZED")
-        android.util.Log.d("UserViewModel", "Initial settings: ${_userSettings.value}")
-        android.util.Log.d("UserViewModel", "════════════════════════════════════════════")
+        Log.d("UserViewModel", "UserViewModel INITIALIZED")
+        Log.d("UserViewModel", "Initial settings: ${_userSettings.value}")
     }
 
     private fun updateUiState() {
         val linksFromUser = _currentUser.value?.socialLinks ?: emptyList()
-        android.util.Log.d("UserViewModel", "updateUiState: currentUser has ${linksFromUser.size} links")
+        Log.d("UserViewModel", "updateUiState: currentUser has ${linksFromUser.size} links")
         _uiState.value = UserUiState(
             isLoading = _isLoading.value ?: false,
             currentUser = _currentUser.value,
@@ -72,7 +70,7 @@ class UserViewModel(context: Context) : ViewModel() {
             error = _errorMessage.value
         )
         _socialLinks.value = linksFromUser
-        android.util.Log.d("UserViewModel", "updateUiState: _socialLinks.value set to ${_socialLinks.value?.size} links")
+        Log.d("UserViewModel", "updateUiState: _socialLinks.value set to ${_socialLinks.value?.size} links")
     }
 
     private fun loadUserSettings() {
@@ -81,13 +79,13 @@ class UserViewModel(context: Context) : ViewModel() {
             try {
                 val loadedSettings = UserSettings.fromJson(settingsJson)
                 _userSettings.value = loadedSettings
-                android.util.Log.d("UserViewModel", "Loaded settings from local: isPushNotificationsEnabled=${loadedSettings.isPushNotificationsEnabled}")
+                Log.d("UserViewModel", "Loaded settings from local: isPushNotificationsEnabled=${loadedSettings.isPushNotificationsEnabled}")
             } catch (e: Exception) {
-                android.util.Log.w("UserViewModel", "Failed to load settings, using defaults", e)
+                Log.w("UserViewModel", "Failed to load settings, using defaults", e)
                 _userSettings.value = UserSettings()
             }
         } else {
-            android.util.Log.d("UserViewModel", "No saved settings found, using defaults (all enabled)")
+            Log.d("UserViewModel", "No saved settings found, using defaults (all enabled)")
             _userSettings.value = UserSettings()
         }
         updateUiState()
@@ -103,7 +101,7 @@ class UserViewModel(context: Context) : ViewModel() {
         _userSettings.value = settingsWithUserId
         sharedPreferences?.edit()?.putString("user_settings", settingsWithUserId.toJson().toString())?.apply()
 
-        android.util.Log.d("UserViewModel", "Saved settings: isPushNotificationsEnabled=${settingsWithUserId.isPushNotificationsEnabled}, isConnectionEnabled=${settingsWithUserId.isConnectionNotificationEnabled}, isFollowUpEnabled=${settingsWithUserId.isFollowUpNotificationEnabled}")
+        Log.d("UserViewModel", "Saved settings: isPushNotificationsEnabled=${settingsWithUserId.isPushNotificationsEnabled}, isConnectionEnabled=${settingsWithUserId.isConnectionNotificationEnabled}, isFollowUpEnabled=${settingsWithUserId.isFollowUpNotificationEnabled}")
 
         viewModelScope.launch {
             userRepository.saveUserSettings(settingsWithUserId)
@@ -167,17 +165,17 @@ class UserViewModel(context: Context) : ViewModel() {
                     if (firestoreSettings != null) {
                         _userSettings.value = firestoreSettings
                         sharedPreferences?.edit()?.putString("user_settings", firestoreSettings.toJson().toString())?.apply()
-                        android.util.Log.d("UserViewModel", "Loaded settings from Firestore: isPushNotificationsEnabled=${firestoreSettings.isPushNotificationsEnabled}")
+                        Log.d("UserViewModel", "Loaded settings from Firestore: isPushNotificationsEnabled=${firestoreSettings.isPushNotificationsEnabled}")
                     } else {
                         val defaultSettings = UserSettings(userId = userId)
                         _userSettings.value = defaultSettings
                         saveUserSettings(defaultSettings)
-                        android.util.Log.d("UserViewModel", "Initialized default settings for user")
+                        Log.d("UserViewModel", "Initialized default settings for user")
                     }
                     updateUiState()
                 }
                 .onFailure { error ->
-                    android.util.Log.w("UserViewModel", "Failed to load settings from Firestore: ${error.message}")
+                    Log.w("UserViewModel", "Failed to load settings from Firestore: ${error.message}")
                     val defaultSettings = UserSettings(userId = userId)
                     _userSettings.value = defaultSettings
                     updateUiState()
@@ -380,7 +378,7 @@ class UserViewModel(context: Context) : ViewModel() {
         )
         saveUserSettings(updated)
         updateUiState()
-        android.util.Log.d("UserViewModel", "Follow-up reminder days updated to: $days")
+        Log.d("UserViewModel", "Follow-up reminder days updated to: $days")
     }
 
     /**
@@ -395,7 +393,7 @@ class UserViewModel(context: Context) : ViewModel() {
         )
         saveUserSettings(updated)
         updateUiState()
-        android.util.Log.d("UserViewModel", "Follow-up reminder timing updated to: $value $unit")
+        Log.d("UserViewModel", "Follow-up reminder timing updated to: $value $unit")
     }
 
     /**
@@ -429,17 +427,17 @@ class UserViewModel(context: Context) : ViewModel() {
      */
     fun addSocialLink(link: SocialLink) {
         val currentUser = _currentUser.value ?: return
-        android.util.Log.d("UserViewModel", "addSocialLink: currentUser has ${currentUser.socialLinks.size} links")
+        Log.d("UserViewModel", "addSocialLink: currentUser has ${currentUser.socialLinks.size} links")
         val updatedLinks = currentUser.socialLinks + link
-        android.util.Log.d("UserViewModel", "addSocialLink: updatedLinks has ${updatedLinks.size} links")
+        Log.d("UserViewModel", "addSocialLink: updatedLinks has ${updatedLinks.size} links")
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
         _socialLinks.value = updatedLinks
-        android.util.Log.d("UserViewModel", "addSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
+        Log.d("UserViewModel", "addSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)
         updateUiState()
-        android.util.Log.d("UserViewModel", "addSocialLink: After updateUiState, _socialLinks.value = ${_socialLinks.value?.size}")
+        Log.d("UserViewModel", "addSocialLink: After updateUiState, _socialLinks.value = ${_socialLinks.value?.size}")
     }
 
     /**
@@ -485,7 +483,7 @@ class UserViewModel(context: Context) : ViewModel() {
         val updatedUser = currentUser.copy(socialLinks = updatedLinks)
         _currentUser.value = updatedUser
         _socialLinks.value = updatedLinks
-        android.util.Log.d("UserViewModel", "deleteSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
+        Log.d("UserViewModel", "deleteSocialLink: _socialLinks.value set to ${updatedLinks.size} links")
         saveUserToLocalStorage(updatedUser)
         saveUserToFirestore(updatedUser)
         updateUiState()
@@ -518,11 +516,11 @@ class UserViewModel(context: Context) : ViewModel() {
                 result.onSuccess { user ->
                     callback(user)
                 }.onFailure { error ->
-                    android.util.Log.e("UserViewModel", "Failed to get user from Firestore", error)
+                    Log.e("UserViewModel", "Failed to get user from Firestore", error)
                     callback(null)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("UserViewModel", "Error in getUserFromFirestore", e)
+                Log.e("UserViewModel", "Error in getUserFromFirestore", e)
                 callback(null)
             }
         }

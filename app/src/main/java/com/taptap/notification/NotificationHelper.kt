@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -93,7 +94,7 @@ class NotificationHelper(
         userPhone: String?
     ) {
         if (!hasNotificationPermission()) {
-            android.util.Log.w("NotificationHelper", "Notification permission not granted")
+            Log.w("NotificationHelper", "Notification permission not granted")
             return
         }
 
@@ -165,22 +166,19 @@ class NotificationHelper(
 
         try {
             val notificationId = (connectionId + userId + "_followup").hashCode()
-
-            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
-            android.util.Log.d("NotificationHelper", "   SHOWING FOLLOW-UP NOTIFICATION")
-            android.util.Log.d("NotificationHelper", "   User: $userName")
-            android.util.Log.d("NotificationHelper", "   Connection ID: $connectionId")
-            android.util.Log.d("NotificationHelper", "   User ID: $userId")
-            android.util.Log.d("NotificationHelper", "   Notification ID: $notificationId")
-            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
+            Log.d("NotificationHelper", "   SHOWING FOLLOW-UP NOTIFICATION")
+            Log.d("NotificationHelper", "   User: $userName")
+            Log.d("NotificationHelper", "   Connection ID: $connectionId")
+            Log.d("NotificationHelper", "   User ID: $userId")
+            Log.d("NotificationHelper", "   Notification ID: $notificationId")
 
             NotificationManagerCompat.from(context).notify(
                 notificationId,
                 builder.build()
             )
-            android.util.Log.d("NotificationHelper", "Follow-up notification shown for $userName")
+            Log.d("NotificationHelper", "Follow-up notification shown for $userName")
         } catch (e: SecurityException) {
-            android.util.Log.e("NotificationHelper", "Failed to show notification", e)
+            Log.e("NotificationHelper", "Failed to show notification", e)
         }
     }
 
@@ -195,7 +193,7 @@ class NotificationHelper(
         userPhone: String?
     ) {
         if (!hasNotificationPermission()) {
-            android.util.Log.w("NotificationHelper", "Notification permission not granted")
+            Log.w("NotificationHelper", "Notification permission not granted")
             return
         }
 
@@ -268,21 +266,19 @@ class NotificationHelper(
         try {
             val notificationId = (connectionId + userId + "_connection").hashCode()
 
-            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
-            android.util.Log.d("NotificationHelper", "   SHOWING CONNECTION NOTIFICATION")
-            android.util.Log.d("NotificationHelper", "   User: $userName")
-            android.util.Log.d("NotificationHelper", "   Connection ID: $connectionId")
-            android.util.Log.d("NotificationHelper", "   User ID: $userId")
-            android.util.Log.d("NotificationHelper", "   Notification ID: $notificationId")
-            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
+            Log.d("NotificationHelper", "   SHOWING CONNECTION NOTIFICATION")
+            Log.d("NotificationHelper", "   User: $userName")
+            Log.d("NotificationHelper", "   Connection ID: $connectionId")
+            Log.d("NotificationHelper", "   User ID: $userId")
+            Log.d("NotificationHelper", "   Notification ID: $notificationId")
 
             NotificationManagerCompat.from(context).notify(
                 notificationId,
                 builder.build()
             )
-            android.util.Log.d("NotificationHelper", "Connection notification shown for $userName")
+            Log.d("NotificationHelper", "Connection notification shown for $userName")
         } catch (e: SecurityException) {
-            android.util.Log.e("NotificationHelper", "Failed to show connection notification", e)
+            Log.e("NotificationHelper", "Failed to show connection notification", e)
         }
     }
 

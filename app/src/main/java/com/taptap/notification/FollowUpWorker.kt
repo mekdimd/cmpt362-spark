@@ -1,6 +1,7 @@
 package com.taptap.notification
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -30,47 +31,42 @@ class FollowUpWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            android.util.Log.d(TAG, "═══════════════════════════════════════════════")
-            android.util.Log.d(TAG, " FOLLOW-UP WORKER STARTED")
-            android.util.Log.d(TAG, "═══════════════════════════════════════════════")
-            android.util.Log.d(TAG, " Triggered at: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
-            android.util.Log.d(TAG, " Run attempt: $runAttemptCount")
-
+            Log.d(TAG, " FOLLOW-UP WORKER STARTED")
+            Log.d(TAG, " Run attempt: $runAttemptCount")
             val connectionId = inputData.getString(INPUT_CONNECTION_ID)
             val userId = inputData.getString(INPUT_USER_ID)
             val userName = inputData.getString(INPUT_USER_NAME)
             val userEmail = inputData.getString(INPUT_USER_EMAIL)
             val userPhone = inputData.getString(INPUT_USER_PHONE)
 
-            android.util.Log.d(TAG, "  Input data retrieved:")
-            android.util.Log.d(TAG, "   Connection ID: $connectionId")
-            android.util.Log.d(TAG, "   User ID: $userId")
-            android.util.Log.d(TAG, "   User Name: $userName")
-            android.util.Log.d(TAG, "   Email: $userEmail")
-            android.util.Log.d(TAG, "   Phone: $userPhone")
+            Log.d(TAG, "Input data retrieved:")
+            Log.d(TAG, "   Connection ID: $connectionId")
+            Log.d(TAG, "   User ID: $userId")
+            Log.d(TAG, "   User Name: $userName")
+            Log.d(TAG, "   Email: $userEmail")
+            Log.d(TAG, "   Phone: $userPhone")
 
             if (connectionId.isNullOrEmpty() || userId.isNullOrEmpty() || userName.isNullOrEmpty()) {
-                android.util.Log.e(TAG, "  ERROR: Missing required input data")
-                android.util.Log.e(TAG, "═══════════════════════════════════════════════")
+                Log.e(TAG, "ERROR: Missing required input data")
                 return Result.failure()
             }
 
-            android.util.Log.d(TAG, "  Input data validation passed")
+            Log.d(TAG, "  Input data validation passed")
 
-            android.util.Log.d(TAG, "  Verifying connection still exists...")
+            Log.d(TAG, "  Verifying connection still exists...")
             val connectionResult = connectionRepository.getConnection(connectionId)
             if (connectionResult.isFailure || connectionResult.getOrNull() == null) {
-                android.util.Log.w(TAG, "   Connection not found - user may have deleted it")
-                android.util.Log.d(TAG, "  Skipping notification (no retry)")
-                android.util.Log.d(TAG, "═══════════════════════════════════════════════")
+                Log.w(TAG, "  Connection not found - user may have deleted it")
+                Log.d(TAG, " Skipping notification (no retry)")
+                
                 return Result.success()
             }
 
-            android.util.Log.d(TAG, "  Connection verified - still exists")
+            Log.d(TAG, "Connection verified - still exists")
 
 
-            android.util.Log.d(TAG, "  Showing follow-up notification...")
-            android.util.Log.d(TAG, "   Target: $userName")
+            Log.d(TAG, "Showing follow-up notification...")
+            Log.d(TAG, "   Target: $userName")
 
             notificationHelper.showFollowUpNotification(
                 connectionId = connectionId,
@@ -80,16 +76,14 @@ class FollowUpWorker @AssistedInject constructor(
                 userPhone = userPhone
             )
 
-            android.util.Log.d(TAG, "  Notification shown successfully!")
-            android.util.Log.d(TAG, "═══════════════════════════════════════════════")
+            Log.d(TAG, "  Notification shown successfully!")
+            
             Result.success()
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "═══════════════════════════════════════════════")
-            android.util.Log.e(TAG, "  ERROR in follow-up worker", e)
-            android.util.Log.e(TAG, "   Exception: ${e.javaClass.simpleName}")
-            android.util.Log.e(TAG, "   Message: ${e.message}")
-            android.util.Log.e(TAG, "   Will retry...")
-            android.util.Log.e(TAG, "═══════════════════════════════════════════════")
+            Log.e(TAG, "ERROR in follow-up worker", e)
+            Log.e(TAG, "   Exception: ${e.javaClass.simpleName}")
+            Log.e(TAG, "   Message: ${e.message}")
+            Log.e(TAG, "   Will retry...")
             Result.retry()
         }
     }

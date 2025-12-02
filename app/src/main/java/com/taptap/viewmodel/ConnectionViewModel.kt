@@ -318,7 +318,6 @@ class ConnectionViewModel : ViewModel() {
     private fun scheduleFollowUpReminder(connection: Connection) {
         viewModelScope.launch {
             try {
-                Log.d("ConnectionViewModel", "═══════════════════════════════════════════════")
                 Log.d("ConnectionViewModel", "scheduleFollowUpReminder called")
                 Log.d("ConnectionViewModel", "   Connection ID: ${connection.connectionId}")
                 Log.d("ConnectionViewModel", "   User ID (owner): ${connection.userId}")
@@ -333,7 +332,6 @@ class ConnectionViewModel : ViewModel() {
                         "ConnectionViewModel",
                         "   > Follow-up notifications disabled, skipping schedule"
                     )
-                    Log.d("ConnectionViewModel", "═══════════════════════════════════════════════")
                     return@launch
                 }
 
@@ -341,7 +339,6 @@ class ConnectionViewModel : ViewModel() {
                 val delayUnit = settings.followUpReminderUnit
 
                 Log.d("ConnectionViewModel", "   > Scheduling follow-up in $delayValue $delayUnit")
-                Log.d("ConnectionViewModel", "═══════════════════════════════════════════════")
                 followUpScheduler.scheduleFollowUpReminder(connection, delayValue, delayUnit)
             } catch (e: Exception) {
                 Log.e("ConnectionViewModel", "Failed to schedule follow-up reminder", e)

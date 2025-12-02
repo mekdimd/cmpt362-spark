@@ -22,15 +22,12 @@ class FollowUpScheduler(
         delayValue: Int,
         delayUnit: String = "days"
     ) {
-        Log.d(TAG, "═══════════════════════════════════════════════")
         Log.d(TAG, "SCHEDULING FOLLOW-UP REMINDER")
-        Log.d(TAG, "═══════════════════════════════════════════════")
         Log.d(TAG, "User: ${connection.connectedUserName}")
         Log.d(TAG, "Connection ID: ${connection.connectionId}")
         Log.d(TAG, "Email: ${connection.connectedUserEmail}")
         Log.d(TAG, "Phone: ${connection.connectedUserPhone}")
         Log.d(TAG, "Delay: $delayValue $delayUnit")
-        Log.d(TAG, "═══════════════════════════════════════════════")
 
         val inputData = Data.Builder()
             .putString(FollowUpWorker.INPUT_CONNECTION_ID, connection.connectionId)
@@ -40,15 +37,17 @@ class FollowUpScheduler(
             .putString(FollowUpWorker.INPUT_USER_PHONE, connection.connectedUserPhone)
             .build()
 
-        Log.d(TAG, "📦 Input data prepared for WorkManager")
+        Log.d(TAG, "Input data prepared for WorkManager")
 
+        // Convert time unit to TimeUnit for WorkManager
         val timeUnit = when (delayUnit.lowercase()) {
             "minutes" -> TimeUnit.MINUTES
             "days" -> TimeUnit.DAYS
-            "months" -> TimeUnit.DAYS
+            "months" -> TimeUnit.DAYS // Will multiply value by 30
             else -> TimeUnit.DAYS
         }
 
+        // Adjust delay value for months
         val adjustedDelay = if (delayUnit.lowercase() == "months") {
             delayValue * 30L
         } else {
@@ -96,11 +95,8 @@ class FollowUpScheduler(
                 Log.d(TAG, "COUNTDOWN: $totalSeconds seconds ($delayValue minutes)")
                 Log.d(TAG, "TIP: Watch logcat for 'FollowUpWorker' to see when it triggers!")
             }
-
-            Log.d(TAG, "═══════════════════════════════════════════════")
         } catch (e: Exception) {
             Log.e(TAG, "ERROR: Failed to enqueue follow-up work", e)
-            Log.e(TAG, "═══════════════════════════════════════════════")
         }
     }
 
@@ -108,7 +104,7 @@ class FollowUpScheduler(
      * Cancel a scheduled follow-up reminder
      */
     fun cancelFollowUpReminder(connectionId: String) {
-        Log.d(TAG, "═══════════════════════════════════════════════")
+        
         Log.d(TAG, "CANCELLING FOLLOW-UP REMINDER")
         Log.d(TAG, "Connection ID: $connectionId")
 
@@ -120,14 +116,13 @@ class FollowUpScheduler(
         } catch (e: Exception) {
             Log.e(TAG, "ERROR: Failed to cancel follow-up", e)
         }
-        Log.d(TAG, "═══════════════════════════════════════════════")
     }
 
     /**
      * Cancel all follow-up reminders
      */
     fun cancelAllFollowUpReminders() {
-        Log.d(TAG, "═══════════════════════════════════════════════")
+        
         Log.d(TAG, "CANCELLING ALL FOLLOW-UP REMINDERS")
 
         try {
@@ -138,7 +133,6 @@ class FollowUpScheduler(
         } catch (e: Exception) {
             Log.e(TAG, "ERROR: Failed to cancel all follow-ups", e)
         }
-        Log.d(TAG, "═══════════════════════════════════════════════")
     }
 
     /**
@@ -146,7 +140,7 @@ class FollowUpScheduler(
      * This should be called when the user changes the follow-up delay setting
      */
     suspend fun rescheduleAllFollowUps(newDelayDays: Int) {
-        Log.d(TAG, "═══════════════════════════════════════════════")
+        
         Log.d(TAG, "RESCHEDULING ALL FOLLOW-UPS")
         Log.d(TAG, "New delay: $newDelayDays days")
 
@@ -162,7 +156,5 @@ class FollowUpScheduler(
         } catch (e: Exception) {
             Log.e(TAG, "ERROR: Failed to reschedule follow-ups", e)
         }
-        Log.d(TAG, "═══════════════════════════════════════════════")
-
     }
 }

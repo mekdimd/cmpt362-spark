@@ -1,5 +1,6 @@
 package com.taptap.ui.profile
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -67,7 +68,7 @@ fun ProfileScreen(
                 subtitle = "Allow sharing location when exchanging contacts",
                 checked = settings.isLocationShared,
                 onCheckedChange = {
-                    android.util.Log.d("ProfileScreen", "Location sharing toggled to: $it")
+                    Log.d("ProfileScreen", "Location sharing toggled to: $it")
                     userViewModel.toggleLocationSharing()
                 }
             )
@@ -110,7 +111,7 @@ fun ProfileScreen(
                 checked = settings.isFollowUpNotificationEnabled,
                 enabled = settings.isPushNotificationsEnabled,
                 onCheckedChange = {
-                    android.util.Log.d("ProfileScreen", "Follow-up Reminders toggled (enabled=${settings.isPushNotificationsEnabled})")
+                    Log.d("ProfileScreen", "Follow-up Reminders toggled (enabled=${settings.isPushNotificationsEnabled})")
                     if (settings.isPushNotificationsEnabled) {
                         userViewModel.updateFollowUpNotificationPreference(!settings.isFollowUpNotificationEnabled)
                     }

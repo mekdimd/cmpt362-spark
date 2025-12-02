@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -53,7 +54,7 @@ class NotificationPermissionManager @Inject constructor() {
         ) = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            android.util.Log.d("NotificationPermission", "Permission granted: $isGranted")
+            Log.d("NotificationPermission", "Permission granted: $isGranted")
             onResult(isGranted)
         }
 

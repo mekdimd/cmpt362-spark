@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.nfc.NfcAdapter
 import android.util.Base64
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
@@ -48,10 +47,6 @@ fun HomeScreen(
     nfcAdapter: NfcAdapter?,
     onNavigateToDashboard: ((User, String) -> Unit)? = null
 ) {
-    Log.d("HomeScreen", "╔═══════════════════════════════════════════════════════════╗")
-    Log.d("HomeScreen", "║  HomeScreen COMPOSING                                     ║")
-    Log.d("HomeScreen", "╚═══════════════════════════════════════════════════════════╝")
-
     val context = LocalContext.current
     val activity = context as? Activity
     val currentUser by userViewModel.currentUser.observeAsState(User())
@@ -62,12 +57,13 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // NFC Reader Manager
     val nfcReaderManager = remember { NfcReaderManager() }
     var isNfcReaderActive by remember { mutableStateOf(false) }
 
+    // Handle NFC contact discovery
     LaunchedEffect(Unit) {
         nfcReaderManager.contactFound.collect { userId ->
-            Log.d("HomeScreen", "NFC contact found: $userId")
             scope.launch {
                 snackbarHostState.showSnackbar(
                     message = "Contact found! Loading profile...",
@@ -75,9 +71,9 @@ fun HomeScreen(
                 )
             }
 
+            // Load user profile from Firestore
             userViewModel.getUserFromFirestore(userId) { user ->
                 if (user != null) {
-                    Log.d("HomeScreen", "User loaded: ${user.fullName}")
                     Toast.makeText(context, "Profile received: ${user.fullName}", Toast.LENGTH_SHORT).show()
                     onNavigateToDashboard?.invoke(user, "NFC")
                 } else {
@@ -94,7 +90,6 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         nfcReaderManager.error.collect { errorMessage ->
-            Log.e("HomeScreen", "NFC Error: $errorMessage")
             scope.launch {
                 snackbarHostState.showSnackbar(
                     message = "NFC Error: $errorMessage",
@@ -105,18 +100,11 @@ fun HomeScreen(
     }
 
     DisposableEffect(isNfcReaderActive) {
-        Log.d("HomeScreen", "╔═══════════════════════════════════════════════════╗")
-        Log.d("HomeScreen", "║  DisposableEffect triggered                       ║")
-        Log.d("HomeScreen", "║  isNfcReaderActive: $isNfcReaderActive${" ".repeat(28 - isNfcReaderActive.toString().length)}║")
-        Log.d("HomeScreen", "╚═══════════════════════════════════════════════════╝")
 
         if (isNfcReaderActive && activity != null) {
-            Log.d("HomeScreen", "Enabling NFC reader mode...")
             val enabled = nfcReaderManager.enableReaderMode(activity)
-            Log.d("HomeScreen", "Enable result: $enabled")
 
             if (enabled) {
-                Log.d("HomeScreen", "NFC reader mode is now ACTIVE")
                 scope.launch {
                     snackbarHostState.showSnackbar(
                         message = "NFC reader active - Hold phones back-to-back",
@@ -124,7 +112,6 @@ fun HomeScreen(
                     )
                 }
             } else {
-                Log.e("HomeScreen", "Failed to enable NFC reader mode")
                 scope.launch {
                     snackbarHostState.showSnackbar(
                         message = "Failed to enable NFC reader",
@@ -133,17 +120,12 @@ fun HomeScreen(
                 }
             }
         } else if (!isNfcReaderActive && activity != null) {
-            Log.d("HomeScreen", "Disabling NFC reader mode...")
             nfcReaderManager.disableReaderMode(activity)
-            Log.d("HomeScreen", "NFC reader mode is now INACTIVE")
         }
 
         onDispose {
-            Log.d("HomeScreen", "→ DisposableEffect onDispose - cleaning up")
             if (activity != null && isNfcReaderActive) {
-                Log.d("HomeScreen", "Disabling NFC reader in dispose")
                 nfcReaderManager.disableReaderMode(activity)
-                Log.d("HomeScreen", "NFC reader disabled in dispose")
             }
         }
     }
@@ -190,6 +172,7 @@ fun HomeScreen(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
+            // Large Profile Card
             ElevatedCard(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -202,6 +185,7 @@ fun HomeScreen(
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Profile Picture Placeholder
                     Box(
                         modifier = Modifier
                             .size(120.dp)
@@ -223,6 +207,7 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Name
                     Text(
                         text = currentUser.fullName.ifEmpty { "No Name" },
                         style = MaterialTheme.typography.headlineSmall,
@@ -271,6 +256,7 @@ fun HomeScreen(
                         )
                     }
 
+                    // Social Links - Show visible links
                     val visibleLinks = currentUser.socialLinks.filter { it.isVisibleOnProfile }
 
                     if (visibleLinks.isNotEmpty()) {
@@ -300,6 +286,7 @@ fun HomeScreen(
                 }
             }
 
+            // Action Buttons Section
             Text(
                 text = "Share Your Profile",
                 style = MaterialTheme.typography.titleMedium,
@@ -309,27 +296,23 @@ fun HomeScreen(
                     .padding(bottom = 16.dp)
             )
 
+            // NFC Share Button
             if (nfcAdapter != null) {
                 FilledTonalButton(
                     onClick = {
-                        Log.d("HomeScreen", "=== NFC Button Clicked ===")
-                        Log.d("HomeScreen", "NFC Adapter enabled: ${nfcAdapter.isEnabled}")
-                        Log.d("HomeScreen", "Current isNfcReaderActive: $isNfcReaderActive")
 
                         if (!nfcAdapter.isEnabled) {
-                            Log.w("HomeScreen", "NFC is disabled on device")
                             Toast.makeText(
                                 context,
                                 "Please enable NFC in settings",
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
+                            // Toggle NFC reader mode state - DisposableEffect will handle actual enable/disable
                             val newState = !isNfcReaderActive
-                            Log.d("HomeScreen", "Toggling isNfcReaderActive from $isNfcReaderActive to $newState")
                             isNfcReaderActive = newState
 
                             if (newState) {
-                                Log.d("HomeScreen", "Set to ENABLE NFC reader (DisposableEffect will activate)")
                 scope.launch {
                     snackbarHostState.showSnackbar(
                         message = "Activating NFC reader...",
@@ -337,7 +320,6 @@ fun HomeScreen(
                     )
                 }
                             } else {
-                                Log.d("HomeScreen", "Set to DISABLE NFC reader (DisposableEffect will deactivate)")
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
                                         message = "Deactivating NFC reader...",
@@ -346,7 +328,6 @@ fun HomeScreen(
                                 }
                             }
 
-                            Log.d("HomeScreen", "Final isNfcReaderActive state: $isNfcReaderActive")
                         }
                     },
                     modifier = Modifier
@@ -378,6 +359,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            // Generate QR Code Button
             OutlinedButton(
                 onClick = { showQrDialog = true },
                 modifier = Modifier
@@ -395,6 +377,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Scan QR Code Button
             OutlinedButton(
                 onClick = {
                     val options = ScanOptions().apply {
@@ -601,6 +584,7 @@ private fun processReceivedData(
 
         Toast.makeText(context, "Profile received via $source", Toast.LENGTH_SHORT).show()
 
+        // Create User object from JSON
         User(
             userId = data.optString("userId", ""),
             createdAt = data.optLong("createdAt", 0),
@@ -610,7 +594,7 @@ private fun processReceivedData(
             phone = data.optString("phone", ""),
             description = data.optString("description", ""),
             location = data.optString("location", ""),
-            socialLinks = emptyList()
+            socialLinks = emptyList() // Will be parsed if available
         )
     } catch (e: Exception) {
         Toast.makeText(context, "Invalid data format: ${e.message}", Toast.LENGTH_SHORT).show()

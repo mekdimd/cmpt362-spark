@@ -39,9 +39,7 @@ class NfcReaderManager {
      */
     private val readerCallback = NfcAdapter.ReaderCallback { tag ->
         try {
-            Log.i(TAG, "╔═══════════════════════════════════════╗")
-            Log.i(TAG, "║    NFC TAG DETECTED                   ║")
-            Log.i(TAG, "╚═══════════════════════════════════════╝")
+            Log.i(TAG, "NFC TAG DETECTED")
             Log.i(TAG, "Tag ID: ${tag.id.joinToString("") { "%02X".format(it) }}")
             Log.i(TAG, "Tag techs: ${tag.techList.joinToString()}")
 

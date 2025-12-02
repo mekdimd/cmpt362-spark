@@ -1,5 +1,6 @@
 package com.taptap.ui.settings
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -42,14 +43,14 @@ fun EditProfileScreen(
     var location by remember { mutableStateOf("") }
 
     LaunchedEffect(socialLinks) {
-        android.util.Log.d("EditProfileScreen", "socialLinks updated: ${socialLinks.size} links")
+        Log.d("EditProfileScreen", "socialLinks updated: ${socialLinks.size} links")
         socialLinks.forEachIndexed { index, link ->
-            android.util.Log.d("EditProfileScreen", "  Link $index: ${link.platform.displayName} - ${link.label} - ${link.url} - visible=${link.isVisibleOnProfile}")
+            Log.d("EditProfileScreen", "  Link $index: ${link.platform.displayName} - ${link.label} - ${link.url} - visible=${link.isVisibleOnProfile}")
         }
     }
 
     LaunchedEffect(currentUser) {
-        android.util.Log.d("EditProfileScreen", "currentUser updated: ${currentUser.socialLinks.size} links in user")
+        Log.d("EditProfileScreen", "currentUser updated: ${currentUser.socialLinks.size} links in user")
         fullName = currentUser.fullName
         email = currentUser.email
         phone = currentUser.phone
