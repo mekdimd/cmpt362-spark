@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.taptap.model.User
+import com.taptap.model.UserSettings
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -14,6 +15,7 @@ class UserRepository {
 
     private val db = FirebaseFirestore.getInstance()
     private val usersCollection = db.collection("users")
+    private val settingsCollection = db.collection("user_settings")
 
     companion object {
         private const val TAG = "UserRepository"
@@ -156,5 +158,50 @@ class UserRepository {
             Result.failure(e)
         }
     }
-}
 
+    /**
+     * Save user settings to Firestore
+     * @param settings The user settings to save
+     * @return Result with success or error
+     */
+    suspend fun saveUserSettings(settings: UserSettings): Result<Unit> {
+        return try {
+            settingsCollection
+                .document(settings.userId)
+                .set(settings.toMap(), SetOptions.merge())
+                .await()
+
+            Log.d(TAG, "User settings saved successfully: ${settings.userId}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving user settings", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get user settings from Firestore
+     * @param userId The user ID
+     * @return Result with settings or error
+     */
+    suspend fun getUserSettings(userId: String): Result<UserSettings?> {
+        return try {
+            val document = settingsCollection
+                .document(userId)
+                .get()
+                .await()
+
+            if (document.exists()) {
+                val settings = UserSettings.fromMap(document.data as Map<String, Any>)
+                Log.d(TAG, "User settings retrieved successfully: $userId")
+                Result.success(settings)
+            } else {
+                Log.d(TAG, "User settings not found: $userId")
+                Result.success(null)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error retrieving user settings", e)
+            Result.failure(e)
+        }
+    }
+}

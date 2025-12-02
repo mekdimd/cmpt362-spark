@@ -178,34 +178,65 @@ fun HomeScreen(
                     )
                 }
 
-                // Social Links
-                val hasSocials = currentUser.linkedIn.isNotEmpty() ||
-                                currentUser.github.isNotEmpty() ||
-                                currentUser.instagram.isNotEmpty() ||
-                                currentUser.website.isNotEmpty()
+                // Social Links - Show pinned links from new structure
+                val pinnedLinks = currentUser.socialLinks.filter { it.isPinned }
+                val hasNewSocialLinks = pinnedLinks.isNotEmpty()
 
-                if (hasSocials) {
+                // Fallback to legacy fields if no new links
+                @Suppress("DEPRECATION")
+                val hasLegacySocials = currentUser.linkedIn.isNotEmpty() ||
+                                      currentUser.github.isNotEmpty() ||
+                                      currentUser.instagram.isNotEmpty() ||
+                                      currentUser.website.isNotEmpty()
+
+                if (hasNewSocialLinks || hasLegacySocials) {
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (currentUser.linkedIn.isNotEmpty()) {
-                            AssistChip(
-                                onClick = { },
-                                label = { Text("LinkedIn") },
-                                leadingIcon = { Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                    if (hasNewSocialLinks) {
+                        // Show pinned links with proper icons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            pinnedLinks.take(4).forEachIndexed { index, link ->
+                                if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text(link.label) },
+                                    leadingIcon = {
+                                        Icon(
+                                            getSocialIcon(link.platform),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                )
+                            }
                         }
-                        if (currentUser.github.isNotEmpty()) {
-                            AssistChip(
-                                onClick = { },
-                                label = { Text("GitHub") },
-                                leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                            )
+                    } else {
+                        // Legacy display
+                        @Suppress("DEPRECATION")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (currentUser.linkedIn.isNotEmpty()) {
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text("LinkedIn") },
+                                    leadingIcon = { Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            if (currentUser.github.isNotEmpty()) {
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text("GitHub") },
+                                    leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                )
+                            }
                         }
                     }
                 }
@@ -499,3 +530,7 @@ private fun processReceivedData(
     }
 }
 
+@Composable
+private fun getSocialIcon(platform: com.taptap.model.SocialLink.SocialPlatform): androidx.compose.ui.graphics.vector.ImageVector {
+    return platform.icon
+}

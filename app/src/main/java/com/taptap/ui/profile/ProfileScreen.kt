@@ -1,189 +1,268 @@
 package com.taptap.ui.profile
 
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.taptap.model.User
 import com.taptap.viewmodel.UserViewModel
 
 @Composable
 fun ProfileScreen(
-    userViewModel: UserViewModel
+    userViewModel: UserViewModel,
+    onNavigateToSettings: () -> Unit
 ) {
-    val context = LocalContext.current
     val currentUser by userViewModel.currentUser.observeAsState(User())
-
-    var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var linkedIn by remember { mutableStateOf("") }
-    var github by remember { mutableStateOf("") }
-    var instagram by remember { mutableStateOf("") }
-    var website by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-
-    LaunchedEffect(currentUser) {
-        fullName = currentUser.fullName
-        email = currentUser.email
-        phone = currentUser.phone
-        linkedIn = currentUser.linkedIn
-        github = currentUser.github
-        instagram = currentUser.instagram
-        website = currentUser.website
-        description = currentUser.description
-        location = currentUser.location
-    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Edit Your Profile",
-            style = MaterialTheme.typography.titleLarge,
+            text = "Profile & Settings",
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        OutlinedTextField(
-            value = fullName,
-            onValueChange = { fullName = it },
-            label = { Text("Full Name") },
+        // Profile Summary Card
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text("Phone") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = linkedIn,
-            onValueChange = { linkedIn = it },
-            label = { Text("LinkedIn") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = github,
-            onValueChange = { github = it },
-            label = { Text("GitHub") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = instagram,
-            onValueChange = { instagram = it },
-            label = { Text("Instagram") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = website,
-            onValueChange = { website = it },
-            label = { Text("Website") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Description") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            minLines = 2,
-            maxLines = 4
-        )
-
-        OutlinedTextField(
-            value = location,
-            onValueChange = { location = it },
-            label = { Text("Location") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp),
-            singleLine = true
-        )
-
-        FilledTonalButton(
-            onClick = {
-                if (fullName.isEmpty()) {
-                    Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT)
-                        .show()
-                } else {
-                    userViewModel.saveUserProfile(
-                        fullName,
-                        phone,
-                        email,
-                        linkedIn,
-                        github,
-                        instagram,
-                        website,
-                        description,
-                        location
-                    )
-                    Toast.makeText(
-                        context,
-                        "Profile saved! Changes will show in Share tab",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
+                .padding(bottom = 24.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
         ) {
-            Text("Save Profile", style = MaterialTheme.typography.titleMedium)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Profile initial
+                Surface(
+                    modifier = Modifier.size(80.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = currentUser.fullName
+                                .split(" ")
+                                .mapNotNull { it.firstOrNull()?.uppercase() }
+                                .take(2)
+                                .joinToString(""),
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = currentUser.fullName.ifEmpty { "No Name Set" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (currentUser.email.isNotEmpty()) {
+                    Text(
+                        text = currentUser.email,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // Quick Actions
+        Text(
+            text = "Quick Actions",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+        )
+
+        ProfileMenuItem(
+            icon = Icons.Default.Settings,
+            title = "Settings",
+            subtitle = "Privacy, notifications, and preferences",
+            onClick = onNavigateToSettings
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Profile Info
+        Text(
+            text = "Profile Information",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+        )
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                if (currentUser.phone.isNotEmpty()) {
+                    ProfileInfoItem(
+                        icon = Icons.Default.Phone,
+                        label = "Phone",
+                        value = currentUser.phone
+                    )
+                }
+
+                if (currentUser.location.isNotEmpty()) {
+                    ProfileInfoItem(
+                        icon = Icons.Default.LocationOn,
+                        label = "Location",
+                        value = currentUser.location
+                    )
+                }
+
+                if (currentUser.description.isNotEmpty()) {
+                    ProfileInfoItem(
+                        icon = Icons.Default.Description,
+                        label = "Bio",
+                        value = currentUser.description
+                    )
+                }
+
+                // Show social links count if new structure is being used
+                if (currentUser.socialLinks.isNotEmpty()) {
+                    ProfileInfoItem(
+                        icon = Icons.Default.Link,
+                        label = "Social Links",
+                        value = "${currentUser.socialLinks.size} link(s)"
+                    )
+                } else {
+                    // Backward compatibility: check legacy fields
+                    @Suppress("DEPRECATION")
+                    val linkCount = listOf(
+                        currentUser.linkedIn,
+                        currentUser.github,
+                        currentUser.instagram,
+                        currentUser.website
+                    ).count { it.isNotEmpty() }
+
+                    if (linkCount > 0) {
+                        ProfileInfoItem(
+                            icon = Icons.Default.Link,
+                            label = "Social Links",
+                            value = "$linkCount link(s)"
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
+@Composable
+fun ProfileMenuItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun ProfileInfoItem(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+

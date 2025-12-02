@@ -13,13 +13,20 @@ data class User(
     var fullName: String = "",
     var phone: String = "",
     var email: String = "",
-    var linkedIn: String = "",
-    var github: String = "",
-    var instagram: String = "",
-    var website: String = "",
     var description: String = "",
     var location: String = "",
-    var profileImageUrl: String = ""
+    var profileImageUrl: String = "",
+    var socialLinks: List<SocialLink> = emptyList(),
+
+    // Legacy fields - maintained for backward compatibility
+    @Deprecated("Use socialLinks instead")
+    var linkedIn: String = "",
+    @Deprecated("Use socialLinks instead")
+    var github: String = "",
+    @Deprecated("Use socialLinks instead")
+    var instagram: String = "",
+    @Deprecated("Use socialLinks instead")
+    var website: String = ""
 ) {
     fun toJson(): String {
         val json = JSONObject()
@@ -30,13 +37,16 @@ data class User(
         json.put("fullName", fullName)
         json.put("phone", phone)
         json.put("email", email)
+        json.put("description", description)
+        json.put("location", location)
+        json.put("profileImageUrl", profileImageUrl)
+        json.put("socialLinks", SocialLink.listToJsonArray(socialLinks))
+
+        // Legacy fields for backward compatibility
         json.put("linkedIn", linkedIn)
         json.put("github", github)
         json.put("instagram", instagram)
         json.put("website", website)
-        json.put("description", description)
-        json.put("location", location)
-        json.put("profileImageUrl", profileImageUrl)
 
         return json.toString()
     }
@@ -52,13 +62,15 @@ data class User(
             "fullName" to fullName,
             "phone" to phone,
             "email" to email,
+            "description" to description,
+            "location" to location,
+            "profileImageUrl" to profileImageUrl,
+            "socialLinks" to SocialLink.listToMapList(socialLinks),
+            // Legacy fields
             "linkedIn" to linkedIn,
             "github" to github,
             "instagram" to instagram,
             "website" to website,
-            "description" to description,
-            "location" to location,
-            "profileImageUrl" to profileImageUrl,
             "updatedAt" to System.currentTimeMillis()
         )
     }
@@ -66,6 +78,16 @@ data class User(
     companion object {
         fun fromJson(jsonString: String): User {
             val json = JSONObject(jsonString)
+
+            // Parse social links if available
+            val socialLinks = try {
+                json.optJSONArray("socialLinks")?.let { array ->
+                    SocialLink.listFromJsonArray(array)
+                } ?: emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+
             return User(
                 userId = json.optString("userId", ""),
                 createdAt = json.optLong("createdAt", 0L),
@@ -73,13 +95,14 @@ data class User(
                 fullName = json.optString("fullName", ""),
                 phone = json.optString("phone", ""),
                 email = json.optString("email", ""),
+                description = json.optString("description", ""),
+                location = json.optString("location", ""),
+                profileImageUrl = json.optString("profileImageUrl", ""),
+                socialLinks = socialLinks,
                 linkedIn = json.optString("linkedIn", ""),
                 github = json.optString("github", ""),
                 instagram = json.optString("instagram", ""),
-                website = json.optString("website", ""),
-                description = json.optString("description", ""),
-                location = json.optString("location", ""),
-                profileImageUrl = json.optString("profileImageUrl", "")
+                website = json.optString("website", "")
             )
         }
 
@@ -87,6 +110,15 @@ data class User(
          * Create User from Firestore document
          */
         fun fromMap(map: Map<String, Any>): User {
+            // Parse social links if available
+            val socialLinks = try {
+                (map["socialLinks"] as? List<*>)?.let { list ->
+                    SocialLink.listFromMapList(list)
+                } ?: emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+
             return User(
                 userId = map["userId"] as? String ?: "",
                 createdAt = map["createdAt"] as? Long ?: 0L,
@@ -94,14 +126,16 @@ data class User(
                 fullName = map["fullName"] as? String ?: "",
                 phone = map["phone"] as? String ?: "",
                 email = map["email"] as? String ?: "",
+                description = map["description"] as? String ?: "",
+                location = map["location"] as? String ?: "",
+                profileImageUrl = map["profileImageUrl"] as? String ?: "",
+                socialLinks = socialLinks,
                 linkedIn = map["linkedIn"] as? String ?: "",
                 github = map["github"] as? String ?: "",
                 instagram = map["instagram"] as? String ?: "",
-                website = map["website"] as? String ?: "",
-                description = map["description"] as? String ?: "",
-                location = map["location"] as? String ?: "",
-                profileImageUrl = map["profileImageUrl"] as? String ?: ""
+                website = map["website"] as? String ?: ""
             )
         }
     }
 }
+
