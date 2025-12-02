@@ -303,8 +303,8 @@ fun MainScreenContent(
                 composable(MainScreen.Profile.route) {
                     ProfileScreen(
                         userViewModel = userViewModel,
-                        onNavigateToSettings = {
-                            navController.navigate(MainScreen.Settings.route)
+                        onNavigateToEditProfile = {
+                            navController.navigate(MainScreen.EditProfile.route)
                         }
                     )
                 }

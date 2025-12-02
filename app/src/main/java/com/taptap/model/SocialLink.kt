@@ -18,32 +18,58 @@ data class SocialLink(
     val order: Int = 0
 ) {
     /**
-     * Social platform enum with icon resources
+     * Social platform enum with icon resources and URL generation
      */
-    enum class SocialPlatform(val displayName: String, val icon: ImageVector) {
-        LINKEDIN("LinkedIn", Icons.Default.Work),
-        GITHUB("GitHub", Icons.Default.Code),
-        INSTAGRAM("Instagram", Icons.Default.PhotoCamera),
-        TWITTER("Twitter", Icons.Default.AlternateEmail),
-        FACEBOOK("Facebook", Icons.Default.Group),
-        YOUTUBE("YouTube", Icons.Default.PlayArrow),
-        TIKTOK("TikTok", Icons.Default.MusicNote),
-        WEBSITE("Website", Icons.Default.Language),
-        EMAIL("Email", Icons.Default.Email),
-        PHONE("Phone", Icons.Default.Phone),
-        CUSTOM("Custom", Icons.Default.Link);
+    enum class SocialPlatform(
+        val displayName: String,
+        val icon: ImageVector,
+        val urlPrefix: String,
+        val placeholder: String
+    ) {
+        LINKEDIN("LinkedIn", Icons.Default.Work, "https://linkedin.com/in/", "username"),
+        GITHUB("GitHub", Icons.Default.Code, "https://github.com/", "username"),
+        INSTAGRAM("Instagram", Icons.Default.PhotoCamera, "https://instagram.com/", "username"),
+        TWITTER("Twitter", Icons.Default.AlternateEmail, "https://twitter.com/", "username"),
+        FACEBOOK("Facebook", Icons.Default.Group, "https://facebook.com/", "username"),
+        YOUTUBE("YouTube", Icons.Default.PlayArrow, "https://youtube.com/@", "channel"),
+        TIKTOK("TikTok", Icons.Default.MusicNote, "https://tiktok.com/@", "username"),
+        WEBSITE("Website", Icons.Default.Language, "https://", "example.com"),
+        EMAIL("Email", Icons.Default.Email, "mailto:", "email@example.com"),
+        PHONE("Phone", Icons.Default.Phone, "tel:", "1234567890"),
+        CUSTOM("Custom", Icons.Default.Link, "", "URL");
 
         companion object {
             fun fromString(value: String): SocialPlatform {
                 return entries.find { it.name == value } ?: CUSTOM
             }
+
+            /**
+             * Generate full URL from handle/username
+             */
+            fun generateUrl(platform: SocialPlatform, input: String): String {
+                // If input already starts with http/https, use it as-is
+                if (input.startsWith("http://") || input.startsWith("https://")) {
+                    return input
+                }
+
+                // For email and phone, check if prefix is already there
+                if (platform == EMAIL && input.startsWith("mailto:")) {
+                    return input
+                }
+                if (platform == PHONE && input.startsWith("tel:")) {
+                    return input
+                }
+
+                // Clean up handle (remove @ if present for social platforms)
+                val cleanHandle = when (platform) {
+                    INSTAGRAM, TWITTER, TIKTOK, YOUTUBE -> input.removePrefix("@")
+                    else -> input
+                }
+
+                return platform.urlPrefix + cleanHandle
+            }
         }
     }
-
-    // Legacy compatibility property
-    @Deprecated("Use platform instead")
-    val type: SocialPlatform
-        get() = platform
 
     fun toJson(): JSONObject {
         val json = JSONObject()

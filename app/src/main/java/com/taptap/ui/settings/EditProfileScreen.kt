@@ -49,33 +49,35 @@ fun EditProfileScreen(
         location = currentUser.location
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Edit Profile",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Text Heading with back button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 56.dp, end = 24.dp, bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Edit Profile",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
             )
         }
-    ) { paddingValues ->
+
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             // Profile Info Section
             Text(
@@ -118,8 +120,7 @@ fun EditProfileScreen(
                 value = description,
                 onValueChange = { description = it },
                 label = "Bio",
-                leadingIcon = Icons.Default.Description,
-                minLines = 3
+                leadingIcon = Icons.Default.Description
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -395,13 +396,14 @@ fun AddLinkBottomSheet(
     onAddLink: (SocialLink) -> Unit
 ) {
     var selectedPlatform by remember { mutableStateOf(SocialLink.SocialPlatform.LINKEDIN) }
-    var url by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf("") }
     var label by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Auto-fill label based on platform
     LaunchedEffect(selectedPlatform) {
         label = selectedPlatform.displayName
+        input = "" // Clear input when changing platform
     }
 
     ModalBottomSheet(
@@ -472,28 +474,48 @@ fun AddLinkBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Label Field
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it },
-                label = { Text("Label") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                enabled = selectedPlatform == SocialLink.SocialPlatform.CUSTOM
-            )
+            // Label Field (only editable for custom)
+            if (selectedPlatform == SocialLink.SocialPlatform.CUSTOM) {
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("Label") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // URL Field
+            // Input Field (handle/username for social platforms, full URL for custom)
             OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                label = { Text("URL") },
-                placeholder = { Text("https://...") },
+                value = input,
+                onValueChange = { input = it },
+                label = {
+                    Text(
+                        when (selectedPlatform) {
+                            SocialLink.SocialPlatform.CUSTOM, SocialLink.SocialPlatform.WEBSITE -> "URL"
+                            SocialLink.SocialPlatform.EMAIL -> "Email Address"
+                            SocialLink.SocialPlatform.PHONE -> "Phone Number"
+                            else -> "Username"
+                        }
+                    )
+                },
+                placeholder = { Text(selectedPlatform.placeholder) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 leadingIcon = {
-                    Icon(Icons.Default.Link, contentDescription = null)
+                    Icon(selectedPlatform.icon, contentDescription = null)
+                },
+                supportingText = {
+                    // Show preview of generated URL
+                    if (input.isNotEmpty() && selectedPlatform != SocialLink.SocialPlatform.CUSTOM) {
+                        val previewUrl = SocialLink.SocialPlatform.generateUrl(selectedPlatform, input)
+                        Text(
+                            text = previewUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             )
 
@@ -502,12 +524,13 @@ fun AddLinkBottomSheet(
             // Add Button
             Button(
                 onClick = {
-                    if (url.isNotEmpty()) {
+                    if (input.isNotEmpty()) {
+                        val finalUrl = SocialLink.SocialPlatform.generateUrl(selectedPlatform, input)
                         onAddLink(
                             SocialLink(
                                 platform = selectedPlatform,
-                                url = url,
-                                label = label,
+                                url = finalUrl,
+                                label = if (selectedPlatform == SocialLink.SocialPlatform.CUSTOM) label else selectedPlatform.displayName,
                                 isPinned = false
                             )
                         )
@@ -517,7 +540,7 @@ fun AddLinkBottomSheet(
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                enabled = url.isNotEmpty()
+                enabled = input.isNotEmpty() && (selectedPlatform != SocialLink.SocialPlatform.CUSTOM || label.isNotEmpty())
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))

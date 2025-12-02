@@ -16,17 +16,7 @@ data class User(
     var description: String = "",
     var location: String = "",
     var profileImageUrl: String = "",
-    var socialLinks: List<SocialLink> = emptyList(),
-
-    // Legacy fields - maintained for backward compatibility
-    @Deprecated("Use socialLinks instead")
-    var linkedIn: String = "",
-    @Deprecated("Use socialLinks instead")
-    var github: String = "",
-    @Deprecated("Use socialLinks instead")
-    var instagram: String = "",
-    @Deprecated("Use socialLinks instead")
-    var website: String = ""
+    var socialLinks: List<SocialLink> = emptyList()
 ) {
     fun toJson(): String {
         val json = JSONObject()
@@ -42,11 +32,6 @@ data class User(
         json.put("profileImageUrl", profileImageUrl)
         json.put("socialLinks", SocialLink.listToJsonArray(socialLinks))
 
-        // Legacy fields for backward compatibility
-        json.put("linkedIn", linkedIn)
-        json.put("github", github)
-        json.put("instagram", instagram)
-        json.put("website", website)
 
         return json.toString()
     }
@@ -66,11 +51,6 @@ data class User(
             "location" to location,
             "profileImageUrl" to profileImageUrl,
             "socialLinks" to SocialLink.listToMapList(socialLinks),
-            // Legacy fields
-            "linkedIn" to linkedIn,
-            "github" to github,
-            "instagram" to instagram,
-            "website" to website,
             "updatedAt" to System.currentTimeMillis()
         )
     }
@@ -98,11 +78,7 @@ data class User(
                 description = json.optString("description", ""),
                 location = json.optString("location", ""),
                 profileImageUrl = json.optString("profileImageUrl", ""),
-                socialLinks = socialLinks,
-                linkedIn = json.optString("linkedIn", ""),
-                github = json.optString("github", ""),
-                instagram = json.optString("instagram", ""),
-                website = json.optString("website", "")
+                socialLinks = socialLinks
             )
         }
 
@@ -129,11 +105,7 @@ data class User(
                 description = map["description"] as? String ?: "",
                 location = map["location"] as? String ?: "",
                 profileImageUrl = map["profileImageUrl"] as? String ?: "",
-                socialLinks = socialLinks,
-                linkedIn = map["linkedIn"] as? String ?: "",
-                github = map["github"] as? String ?: "",
-                instagram = map["instagram"] as? String ?: "",
-                website = map["website"] as? String ?: ""
+                socialLinks = socialLinks
             )
         }
     }

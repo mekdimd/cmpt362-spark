@@ -188,12 +188,7 @@ fun ConnectionDetailScreen(
                     }
 
                     // Social media section
-                    val hasSocialMedia = connection.connectedUserLinkedIn.isNotEmpty() ||
-                            connection.connectedUserGithub.isNotEmpty() ||
-                            connection.connectedUserInstagram.isNotEmpty() ||
-                            connection.connectedUserWebsite.isNotEmpty()
-
-                    if (hasSocialMedia) {
+                    if (connection.connectedUserSocialLinks.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
@@ -202,35 +197,11 @@ fun ConnectionDetailScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        if (connection.connectedUserLinkedIn.isNotEmpty()) {
+                        connection.connectedUserSocialLinks.forEach { socialLink ->
                             ContactInfoItem(
-                                icon = Icons.Default.Link,
-                                label = "LinkedIn",
-                                value = connection.connectedUserLinkedIn
-                            )
-                        }
-
-                        if (connection.connectedUserGithub.isNotEmpty()) {
-                            ContactInfoItem(
-                                icon = Icons.Default.Code,
-                                label = "GitHub",
-                                value = connection.connectedUserGithub
-                            )
-                        }
-
-                        if (connection.connectedUserInstagram.isNotEmpty()) {
-                            ContactInfoItem(
-                                icon = Icons.Default.Photo,
-                                label = "Instagram",
-                                value = connection.connectedUserInstagram
-                            )
-                        }
-
-                        if (connection.connectedUserWebsite.isNotEmpty()) {
-                            ContactInfoItem(
-                                icon = Icons.Default.Language,
-                                label = "Website",
-                                value = connection.connectedUserWebsite
+                                icon = socialLink.platform.icon,
+                                label = socialLink.label.ifEmpty { socialLink.platform.displayName },
+                                value = socialLink.url
                             )
                         }
                     }

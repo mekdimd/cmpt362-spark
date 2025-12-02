@@ -137,12 +137,9 @@ class UserViewModel(context: Context) : ViewModel() {
                             fullName = displayName,
                             email = email,
                             phone = "",
-                            linkedIn = "",
-                            github = "",
-                            instagram = "",
-                            website = "",
                             description = "",
-                            location = ""
+                            location = "",
+                            socialLinks = emptyList()
                         )
                         _currentUser.value = newUser
                         saveUserToLocalStorage(newUser)
@@ -200,40 +197,6 @@ class UserViewModel(context: Context) : ViewModel() {
                     _errorMessage.value = "Failed to save to cloud: ${error.message}"
                 }
             _isLoading.value = false
-        }
-    }
-
-    /**
-     * Main save function that updates the global user data
-     * Saves to both local storage and Firestore
-     */
-    fun saveUserProfile(
-        fullName: String,
-        phone: String,
-        email: String,
-        linkedIn: String,
-        github: String,
-        instagram: String,
-        website: String,
-        description: String,
-        location: String
-    ) {
-        val current = _currentUser.value
-        if (current != null) {
-            val updatedUser = current.copy(
-                fullName = fullName,
-                phone = phone,
-                email = email,
-                linkedIn = linkedIn,
-                github = github,
-                instagram = instagram,
-                website = website,
-                description = description,
-                location = location
-            )
-            _currentUser.value = updatedUser
-            saveUserToLocalStorage(updatedUser)
-            saveUserToFirestore(updatedUser)
         }
     }
 
@@ -297,12 +260,9 @@ class UserViewModel(context: Context) : ViewModel() {
         json.put("fullName", user.fullName)
         json.put("phone", user.phone)
         json.put("email", user.email)
-        json.put("linkedIn", user.linkedIn)
-        json.put("github", user.github)
-        json.put("instagram", user.instagram)
-        json.put("website", user.website)
         json.put("description", user.description)
         json.put("location", user.location)
+        json.put("socialLinks", SocialLink.listToJsonArray(user.socialLinks))
         json.put("timestamp", System.currentTimeMillis())
 
         return json
@@ -316,7 +276,7 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Save user profile with new social links structure
+     * Save user profile with social links
      */
     fun saveUserProfileWithLinks(
         fullName: String,
@@ -328,23 +288,13 @@ class UserViewModel(context: Context) : ViewModel() {
     ) {
         val current = _currentUser.value
         if (current != null) {
-            // Maintain backward compatibility by extracting legacy fields
-            val linkedIn = socialLinks.find { it.platform == SocialLink.SocialPlatform.LINKEDIN }?.url ?: ""
-            val github = socialLinks.find { it.platform == SocialLink.SocialPlatform.GITHUB }?.url ?: ""
-            val instagram = socialLinks.find { it.platform == SocialLink.SocialPlatform.INSTAGRAM }?.url ?: ""
-            val website = socialLinks.find { it.platform == SocialLink.SocialPlatform.WEBSITE }?.url ?: ""
-
             val updatedUser = current.copy(
                 fullName = fullName,
                 phone = phone,
                 email = email,
                 description = description,
                 location = location,
-                socialLinks = socialLinks,
-                linkedIn = linkedIn,
-                github = github,
-                instagram = instagram,
-                website = website
+                socialLinks = socialLinks
             )
             _currentUser.value = updatedUser
             saveUserToLocalStorage(updatedUser)
@@ -373,7 +323,7 @@ class UserViewModel(context: Context) : ViewModel() {
         val current = _userSettings.value ?: UserSettings()
         val updated = current.copy(
             userId = _currentUser.value?.userId ?: "",
-            notificationsEnabled = enabled
+            isPushNotificationsEnabled = enabled
         )
         saveUserSettings(updated)
         updateUiState()
