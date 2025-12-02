@@ -57,6 +57,7 @@ fun DashboardScreen(
     connectionViewModel: ConnectionViewModel,
     onNavigateToDetail: (String) -> Unit,
     scannedUserFromHome: User? = null,
+    scanMethodFromHome: String? = null, // Added parameter to track scan method
     onScannedUserHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -98,7 +99,7 @@ fun DashboardScreen(
     LaunchedEffect(scannedUserFromHome) {
         if (scannedUserFromHome != null) {
             scannedUser = scannedUserFromHome
-            scanMethod = "QR"
+            scanMethod = scanMethodFromHome ?: "QR" // Use the passed method, default to QR if null
             showConfirmationDialog = true
             onScannedUserHandled()
         }

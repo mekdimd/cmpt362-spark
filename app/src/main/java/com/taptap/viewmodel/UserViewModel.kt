@@ -523,4 +523,26 @@ class UserViewModel(context: Context) : ViewModel() {
         auth.signOut()
         clearUserData()
     }
+
+    /**
+     * Get a user from Firestore by userId (for NFC/QR code scanning)
+     * @param userId The user ID to fetch
+     * @param callback Callback with the user object or null if not found
+     */
+    fun getUserFromFirestore(userId: String, callback: (User?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val result = userRepository.getUser(userId, forceRefresh = true)
+                result.onSuccess { user ->
+                    callback(user)
+                }.onFailure { error ->
+                    android.util.Log.e("UserViewModel", "Failed to get user from Firestore", error)
+                    callback(null)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("UserViewModel", "Error in getUserFromFirestore", e)
+                callback(null)
+            }
+        }
+    }
 }
