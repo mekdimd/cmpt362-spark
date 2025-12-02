@@ -1,5 +1,6 @@
 package com.taptap
 
+import android.Manifest
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Build
@@ -282,10 +283,9 @@ fun MainScreenContent(
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
-    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Profile)
+    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Analytics, MainScreen.Profile)
     val currentUser by authViewModel.currentUser.observeAsState()
     val connections by connectionViewModel.connections.observeAsState(emptyList())
-    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Analytics, MainScreen.Profile)
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
