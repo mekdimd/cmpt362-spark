@@ -1,7 +1,6 @@
 package com.taptap.ui.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +33,7 @@ fun EditProfileScreen(
     val socialLinks by userViewModel.socialLinks.observeAsState(emptyList())
 
     var showAddLinkSheet by remember { mutableStateOf(false) }
+    var editingLink by remember { mutableStateOf<SocialLink?>(null) }
 
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -41,7 +41,16 @@ fun EditProfileScreen(
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
 
+    // Debug logging
+    LaunchedEffect(socialLinks) {
+        android.util.Log.d("EditProfileScreen", "socialLinks updated: ${socialLinks.size} links")
+        socialLinks.forEachIndexed { index, link ->
+            android.util.Log.d("EditProfileScreen", "  Link $index: ${link.platform.displayName} - ${link.label} - ${link.url} - visible=${link.isVisibleOnProfile}")
+        }
+    }
+
     LaunchedEffect(currentUser) {
+        android.util.Log.d("EditProfileScreen", "currentUser updated: ${currentUser.socialLinks.size} links in user")
         fullName = currentUser.fullName
         email = currentUser.email
         phone = currentUser.phone
@@ -49,33 +58,35 @@ fun EditProfileScreen(
         location = currentUser.location
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Edit Profile",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Text Heading with back button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 56.dp, end = 24.dp, bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Edit Profile",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
             )
         }
-    ) { paddingValues ->
+
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             // Profile Info Section
             Text(
@@ -118,8 +129,7 @@ fun EditProfileScreen(
                 value = description,
                 onValueChange = { description = it },
                 label = "Bio",
-                leadingIcon = Icons.Default.Description,
-                minLines = 3
+                leadingIcon = Icons.Default.Description
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -165,12 +175,11 @@ fun EditProfileScreen(
             if (socialLinks.isEmpty()) {
                 EmptyLinksPlaceholder()
             } else {
-                // Display pinned links first, then others
-                val sortedLinks = socialLinks.sortedByDescending { it.isPinned }
-                sortedLinks.forEach { link ->
+                socialLinks.forEach { link ->
                     SocialLinkCard(
                         link = link,
-                        onTogglePin = { userViewModel.togglePin(link.id) },
+                        onToggleVisibility = { userViewModel.toggleVisibility(link.id) },
+                        onEdit = { editingLink = link },
                         onDelete = { userViewModel.deleteSocialLink(link.id) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -220,6 +229,22 @@ fun EditProfileScreen(
             }
         )
     }
+
+    // Edit Link Bottom Sheet
+    if (editingLink != null) {
+        EditLinkBottomSheet(
+            link = editingLink!!,
+            onDismiss = { editingLink = null },
+            onSaveLink = { updatedLink ->
+                userViewModel.updateSocialLink(editingLink!!.id, updatedLink)
+                editingLink = null
+            },
+            onDelete = {
+                userViewModel.deleteSocialLink(editingLink!!.id)
+                editingLink = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -256,21 +281,18 @@ fun ProfileTextField(
 @Composable
 fun SocialLinkCard(
     link: SocialLink,
-    onTogglePin: () -> Unit,
+    onToggleVisibility: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (link.isPinned) 4.dp else 2.dp
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (link.isPinned) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
@@ -317,35 +339,11 @@ fun SocialLinkCard(
                 )
             }
 
-            // Pin Button
-            IconButton(
-                onClick = onTogglePin,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = if (link.isPinned) Icons.Default.PushPin else Icons.Default.PushPin,
-                    contentDescription = if (link.isPinned) "Unpin" else "Pin",
-                    tint = if (link.isPinned) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    },
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // Delete Button
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            // Toggle for visibility
+            Switch(
+                checked = link.isVisibleOnProfile,
+                onCheckedChange = { onToggleVisibility() }
+            )
         }
     }
 }
@@ -395,13 +393,14 @@ fun AddLinkBottomSheet(
     onAddLink: (SocialLink) -> Unit
 ) {
     var selectedPlatform by remember { mutableStateOf(SocialLink.SocialPlatform.LINKEDIN) }
-    var url by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf("") }
     var label by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Auto-fill label based on platform
     LaunchedEffect(selectedPlatform) {
         label = selectedPlatform.displayName
+        input = "" // Clear input when changing platform
     }
 
     ModalBottomSheet(
@@ -415,21 +414,6 @@ fun AddLinkBottomSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            // Handle bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp),
-                    shape = RoundedCornerShape(2.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                ) {}
-            }
 
             Text(
                 text = "Add Social Link",
@@ -472,28 +456,46 @@ fun AddLinkBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Label Field
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it },
-                label = { Text("Label") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                enabled = selectedPlatform == SocialLink.SocialPlatform.CUSTOM
-            )
+            // Label Field (only editable for custom)
+            if (selectedPlatform == SocialLink.SocialPlatform.CUSTOM) {
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("Label") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // URL Field
+            // Input Field (handle/username for social platforms, full URL for custom)
             OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                label = { Text("URL") },
-                placeholder = { Text("https://...") },
+                value = input,
+                onValueChange = { input = it },
+                label = {
+                    Text(
+                        when (selectedPlatform) {
+                            SocialLink.SocialPlatform.CUSTOM, SocialLink.SocialPlatform.WEBSITE -> "URL"
+                            else -> "Username"
+                        }
+                    )
+                },
+                placeholder = { Text(selectedPlatform.placeholder) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 leadingIcon = {
-                    Icon(Icons.Default.Link, contentDescription = null)
+                    Icon(selectedPlatform.icon, contentDescription = null)
+                },
+                supportingText = {
+                    // Show preview of generated URL
+                    if (input.isNotEmpty() && selectedPlatform != SocialLink.SocialPlatform.CUSTOM) {
+                        val previewUrl = SocialLink.SocialPlatform.generateUrl(selectedPlatform, input)
+                        Text(
+                            text = previewUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             )
 
@@ -502,13 +504,14 @@ fun AddLinkBottomSheet(
             // Add Button
             Button(
                 onClick = {
-                    if (url.isNotEmpty()) {
+                    if (input.isNotEmpty()) {
+                        val finalUrl = SocialLink.SocialPlatform.generateUrl(selectedPlatform, input)
                         onAddLink(
                             SocialLink(
                                 platform = selectedPlatform,
-                                url = url,
-                                label = label,
-                                isPinned = false
+                                url = finalUrl,
+                                label = if (selectedPlatform == SocialLink.SocialPlatform.CUSTOM) label else selectedPlatform.displayName,
+                                isVisibleOnProfile = true
                             )
                         )
                     }
@@ -517,7 +520,7 @@ fun AddLinkBottomSheet(
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                enabled = url.isNotEmpty()
+                enabled = input.isNotEmpty() && (selectedPlatform != SocialLink.SocialPlatform.CUSTOM || label.isNotEmpty())
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -533,3 +536,205 @@ fun AddLinkBottomSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditLinkBottomSheet(
+    link: SocialLink,
+    onDismiss: () -> Unit,
+    onSaveLink: (SocialLink) -> Unit,
+    onDelete: () -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf(link.label) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Extract username/handle from existing URL
+    LaunchedEffect(link) {
+        input = when (link.platform) {
+            SocialLink.SocialPlatform.CUSTOM, SocialLink.SocialPlatform.WEBSITE -> link.url
+            else -> link.url.removePrefix(link.platform.urlPrefix)
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+
+            Text(
+                text = "Edit Social Link",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            // Platform Display (non-editable)
+            Text(
+                text = "Platform",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        link.platform.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = link.platform.displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Label Field (only editable for custom)
+            if (link.platform == SocialLink.SocialPlatform.CUSTOM) {
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("Label") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Input Field
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                label = {
+                    Text(
+                        when (link.platform) {
+                            SocialLink.SocialPlatform.CUSTOM, SocialLink.SocialPlatform.WEBSITE -> "URL"
+                            else -> "Username"
+                        }
+                    )
+                },
+                placeholder = { Text(link.platform.placeholder) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                leadingIcon = {
+                    Icon(link.platform.icon, contentDescription = null)
+                },
+                supportingText = {
+                    // Show preview of generated URL
+                    if (input.isNotEmpty() && link.platform != SocialLink.SocialPlatform.CUSTOM) {
+                        val previewUrl = SocialLink.SocialPlatform.generateUrl(link.platform, input)
+                        Text(
+                            text = previewUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Save Button
+            Button(
+                onClick = {
+                    if (input.isNotEmpty()) {
+                        val finalUrl = SocialLink.SocialPlatform.generateUrl(link.platform, input)
+                        onSaveLink(
+                            link.copy(
+                                url = finalUrl,
+                                label = if (link.platform == SocialLink.SocialPlatform.CUSTOM) label else link.platform.displayName
+                            )
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                enabled = input.isNotEmpty() && (link.platform != SocialLink.SocialPlatform.CUSTOM || label.isNotEmpty())
+            ) {
+                Icon(Icons.Default.Save, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Save Changes",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Delete Button
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Delete Link",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Link") },
+            text = { Text("Are you sure you want to delete this link?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDelete()
+                        onDismiss()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}

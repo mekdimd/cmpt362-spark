@@ -13,12 +13,9 @@ data class Connection(
     val connectedUserName: String = "",
     val connectedUserEmail: String = "",
     val connectedUserPhone: String = "",
-    val connectedUserLinkedIn: String = "",
-    val connectedUserGithub: String = "",
-    val connectedUserInstagram: String = "",
-    val connectedUserWebsite: String = "",
     val connectedUserDescription: String = "",
     val connectedUserLocation: String = "",
+    val connectedUserSocialLinks: List<SocialLink> = emptyList(),
     val timestamp: Long = System.currentTimeMillis(),
     val connectionMethod: String = "NFC", // NFC or QR
     val eventName: String = "", // Optional event tag
@@ -40,12 +37,9 @@ data class Connection(
             "connectedUserName" to connectedUserName,
             "connectedUserEmail" to connectedUserEmail,
             "connectedUserPhone" to connectedUserPhone,
-            "connectedUserLinkedIn" to connectedUserLinkedIn,
-            "connectedUserGithub" to connectedUserGithub,
-            "connectedUserInstagram" to connectedUserInstagram,
-            "connectedUserWebsite" to connectedUserWebsite,
             "connectedUserDescription" to connectedUserDescription,
             "connectedUserLocation" to connectedUserLocation,
+            "connectedUserSocialLinks" to SocialLink.listToMapList(connectedUserSocialLinks),
             "timestamp" to timestamp,
             "connectionMethod" to connectionMethod,
             "eventName" to eventName,
@@ -61,6 +55,15 @@ data class Connection(
          * Create Connection from Firestore document
          */
         fun fromMap(map: Map<String, Any>): Connection {
+            // Parse social links if available
+            val socialLinks = try {
+                (map["connectedUserSocialLinks"] as? List<*>)?.let { list ->
+                    SocialLink.listFromMapList(list)
+                } ?: emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+
             return Connection(
                 connectionId = map["connectionId"] as? String ?: "",
                 userId = map["userId"] as? String ?: "",
@@ -68,12 +71,9 @@ data class Connection(
                 connectedUserName = map["connectedUserName"] as? String ?: "",
                 connectedUserEmail = map["connectedUserEmail"] as? String ?: "",
                 connectedUserPhone = map["connectedUserPhone"] as? String ?: "",
-                connectedUserLinkedIn = map["connectedUserLinkedIn"] as? String ?: "",
-                connectedUserGithub = map["connectedUserGithub"] as? String ?: "",
-                connectedUserInstagram = map["connectedUserInstagram"] as? String ?: "",
-                connectedUserWebsite = map["connectedUserWebsite"] as? String ?: "",
                 connectedUserDescription = map["connectedUserDescription"] as? String ?: "",
                 connectedUserLocation = map["connectedUserLocation"] as? String ?: "",
+                connectedUserSocialLinks = socialLinks,
                 timestamp = map["timestamp"] as? Long ?: 0L,
                 connectionMethod = map["connectionMethod"] as? String ?: "NFC",
                 eventName = map["eventName"] as? String ?: "",

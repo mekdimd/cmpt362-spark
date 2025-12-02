@@ -14,36 +14,53 @@ data class SocialLink(
     val platform: SocialPlatform = SocialPlatform.CUSTOM,
     val url: String = "",
     val label: String = "",
-    val isPinned: Boolean = false,
+    val isVisibleOnProfile: Boolean = true,
     val order: Int = 0
 ) {
     /**
-     * Social platform enum with icon resources
+     * Social platform enum with icon resources and URL generation
      */
-    enum class SocialPlatform(val displayName: String, val icon: ImageVector) {
-        LINKEDIN("LinkedIn", Icons.Default.Work),
-        GITHUB("GitHub", Icons.Default.Code),
-        INSTAGRAM("Instagram", Icons.Default.PhotoCamera),
-        TWITTER("Twitter", Icons.Default.AlternateEmail),
-        FACEBOOK("Facebook", Icons.Default.Group),
-        YOUTUBE("YouTube", Icons.Default.PlayArrow),
-        TIKTOK("TikTok", Icons.Default.MusicNote),
-        WEBSITE("Website", Icons.Default.Language),
-        EMAIL("Email", Icons.Default.Email),
-        PHONE("Phone", Icons.Default.Phone),
-        CUSTOM("Custom", Icons.Default.Link);
+    enum class SocialPlatform(
+        val displayName: String,
+        val icon: ImageVector,
+        val urlPrefix: String,
+        val placeholder: String
+    ) {
+        LINKEDIN("LinkedIn", Icons.Default.Work, "https://linkedin.com/in/", "username"),
+        GITHUB("GitHub", Icons.Default.Code, "https://github.com/", "username"),
+        INSTAGRAM("Instagram", Icons.Default.PhotoCamera, "https://instagram.com/", "username"),
+        TWITTER("Twitter", Icons.Default.AlternateEmail, "https://twitter.com/", "username"),
+        FACEBOOK("Facebook", Icons.Default.Group, "https://facebook.com/", "username"),
+        YOUTUBE("YouTube", Icons.Default.PlayArrow, "https://youtube.com/@", "channel"),
+        TIKTOK("TikTok", Icons.Default.MusicNote, "https://tiktok.com/@", "username"),
+        WEBSITE("Website", Icons.Default.Language, "https://", "example.com"),
+        CUSTOM("Custom", Icons.Default.Link, "", "URL");
 
         companion object {
             fun fromString(value: String): SocialPlatform {
                 return entries.find { it.name == value } ?: CUSTOM
             }
+
+            /**
+             * Generate full URL from handle/username
+             */
+            fun generateUrl(platform: SocialPlatform, input: String): String {
+                // If input already starts with http/https, use it as-is
+                if (input.startsWith("http://") || input.startsWith("https://")) {
+                    return input
+                }
+
+
+                // Clean up handle (remove @ if present for social platforms)
+                val cleanHandle = when (platform) {
+                    INSTAGRAM, TWITTER, TIKTOK, YOUTUBE -> input.removePrefix("@")
+                    else -> input
+                }
+
+                return platform.urlPrefix + cleanHandle
+            }
         }
     }
-
-    // Legacy compatibility property
-    @Deprecated("Use platform instead")
-    val type: SocialPlatform
-        get() = platform
 
     fun toJson(): JSONObject {
         val json = JSONObject()
@@ -51,7 +68,7 @@ data class SocialLink(
         json.put("platform", platform.name)
         json.put("label", label)
         json.put("url", url)
-        json.put("isPinned", isPinned)
+        json.put("isVisibleOnProfile", isVisibleOnProfile)
         json.put("order", order)
         return json
     }
@@ -62,7 +79,7 @@ data class SocialLink(
             "platform" to platform.name,
             "label" to label,
             "url" to url,
-            "isPinned" to isPinned,
+            "isVisibleOnProfile" to isVisibleOnProfile,
             "order" to order
         )
     }
@@ -74,7 +91,7 @@ data class SocialLink(
                 platform = SocialPlatform.fromString(json.optString("platform", "CUSTOM")),
                 label = json.optString("label", ""),
                 url = json.optString("url", ""),
-                isPinned = json.optBoolean("isPinned", false),
+                isVisibleOnProfile = json.optBoolean("isVisibleOnProfile", true),
                 order = json.optInt("order", 0)
             )
         }
@@ -85,7 +102,7 @@ data class SocialLink(
                 platform = SocialPlatform.fromString(map["platform"] as? String ?: "CUSTOM"),
                 label = map["label"] as? String ?: "",
                 url = map["url"] as? String ?: "",
-                isPinned = map["isPinned"] as? Boolean ?: false,
+                isVisibleOnProfile = map["isVisibleOnProfile"] as? Boolean ?: true,
                 order = (map["order"] as? Long)?.toInt() ?: 0
             )
         }

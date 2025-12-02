@@ -92,12 +92,9 @@ class ConnectionViewModel : ViewModel() {
                     connectedUserName = user.fullName,
                     connectedUserEmail = user.email,
                     connectedUserPhone = user.phone,
-                    connectedUserLinkedIn = user.linkedIn,
-                    connectedUserGithub = user.github,
-                    connectedUserInstagram = user.instagram,
-                    connectedUserWebsite = user.website,
                     connectedUserDescription = user.description,
-                    connectedUserLocation = user.location
+                    connectedUserLocation = user.location,
+                    connectedUserSocialLinks = user.socialLinks
                 )
             } else {
                 connection
@@ -177,12 +174,9 @@ class ConnectionViewModel : ViewModel() {
                     connectedUserName = connectedUser.fullName,
                     connectedUserEmail = connectedUser.email,
                     connectedUserPhone = connectedUser.phone,
-                    connectedUserLinkedIn = connectedUser.linkedIn,
-                    connectedUserGithub = connectedUser.github,
-                    connectedUserInstagram = connectedUser.instagram,
-                    connectedUserWebsite = connectedUser.website,
                     connectedUserDescription = connectedUser.description,
                     connectedUserLocation = connectedUser.location,
+                    connectedUserSocialLinks = connectedUser.socialLinks,
                     timestamp = System.currentTimeMillis(),
                     connectionMethod = connectionMethod,
                     eventName = "", // You can set this based on context
@@ -253,12 +247,9 @@ class ConnectionViewModel : ViewModel() {
                 connectedUserName = connectedUser.fullName,
                 connectedUserEmail = connectedUser.email,
                 connectedUserPhone = connectedUser.phone,
-                connectedUserLinkedIn = connectedUser.linkedIn,
-                connectedUserGithub = connectedUser.github,
-                connectedUserInstagram = connectedUser.instagram,
-                connectedUserWebsite = connectedUser.website,
                 connectedUserDescription = connectedUser.description,
                 connectedUserLocation = connectedUser.location,
+                connectedUserSocialLinks = connectedUser.socialLinks,
                 timestamp = System.currentTimeMillis(),
                 connectionMethod = connectionMethod,
                 eventName = eventName,
@@ -302,12 +293,9 @@ class ConnectionViewModel : ViewModel() {
                         connectedUserName = currentUser.fullName,
                         connectedUserEmail = currentUser.email,
                         connectedUserPhone = currentUser.phone,
-                        connectedUserLinkedIn = currentUser.linkedIn,
-                        connectedUserGithub = currentUser.github,
-                        connectedUserInstagram = currentUser.instagram,
-                        connectedUserWebsite = currentUser.website,
                         connectedUserDescription = currentUser.description,
                         connectedUserLocation = currentUser.location,
+                        connectedUserSocialLinks = currentUser.socialLinks,
                         timestamp = System.currentTimeMillis(),
                         connectionMethod = connectionMethod
                     )
@@ -491,12 +479,9 @@ class ConnectionViewModel : ViewModel() {
                                         connectedUserName = user.fullName,
                                         connectedUserEmail = user.email,
                                         connectedUserPhone = user.phone,
-                                        connectedUserLinkedIn = user.linkedIn,
-                                        connectedUserGithub = user.github,
-                                        connectedUserInstagram = user.instagram,
-                                        connectedUserWebsite = user.website,
                                         connectedUserDescription = user.description,
-                                        connectedUserLocation = user.location
+                                        connectedUserLocation = user.location,
+                                        connectedUserSocialLinks = user.socialLinks
                                     )
                                 } else {
                                     conn
@@ -541,10 +526,7 @@ class ConnectionViewModel : ViewModel() {
                                 connectedUserName = user.fullName,
                                 connectedUserEmail = user.email,
                                 connectedUserPhone = user.phone,
-                                connectedUserLinkedIn = user.linkedIn,
-                                connectedUserGithub = user.github,
-                                connectedUserInstagram = user.instagram,
-                                connectedUserWebsite = user.website,
+                                connectedUserSocialLinks = user.socialLinks,
                                 connectedUserDescription = user.description,
                                 connectedUserLocation = user.location
                             )

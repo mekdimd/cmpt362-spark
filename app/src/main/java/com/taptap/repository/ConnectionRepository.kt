@@ -297,10 +297,7 @@ class ConnectionRepository {
             userData["fullName"]?.let { updateData["connectedUserName"] = it }
             userData["email"]?.let { updateData["connectedUserEmail"] = it }
             userData["phone"]?.let { updateData["connectedUserPhone"] = it }
-            userData["linkedIn"]?.let { updateData["connectedUserLinkedIn"] = it }
-            userData["github"]?.let { updateData["connectedUserGithub"] = it }
-            userData["instagram"]?.let { updateData["connectedUserInstagram"] = it }
-            userData["website"]?.let { updateData["connectedUserWebsite"] = it }
+            userData["socialLinks"]?.let { updateData["connectedUserSocialLinks"] = it }
             userData["description"]?.let { updateData["connectedUserDescription"] = it }
             userData["location"]?.let { updateData["connectedUserLocation"] = it }
 
