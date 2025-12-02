@@ -5,11 +5,9 @@ import android.nfc.NfcAdapter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,7 +89,8 @@ sealed class MainScreen(val route: String, val title: String, val icon: ImageVec
     object Dashboard : MainScreen("dashboard", "Connections", Icons.Filled.People)
     object Map : MainScreen("map", "Map", Icons.Filled.Map)
     object Profile : MainScreen("profile", "Profile", Icons.Filled.AccountCircle)
-    object ConnectionDetail : MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
+    object ConnectionDetail :
+        MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
         fun createRoute(connectionId: String) = "connection_detail/$connectionId"
     }
 }
@@ -124,13 +123,7 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = startDestination,
-        enterTransition = {
-            fadeIn(animationSpec = tween(200, easing = LinearEasing))
-        },
-        exitTransition = {
-            fadeOut(animationSpec = tween(200, easing = LinearEasing))
-        }
+        startDestination = startDestination
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
@@ -201,23 +194,19 @@ fun MainScreenContent(
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
-    val items = listOf(MainScreen.Home, MainScreen.Dashboard,MainScreen.Map ,MainScreen.Profile)
+    val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Profile)
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
 
-    // Track current route to hide bars on detail screen
+    // Check if we're on the detail screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBars = currentRoute != MainScreen.ConnectionDetail.route
+    val isDetailScreen = currentRoute?.startsWith("connection_detail") == true
 
     Scaffold(
         topBar = {
-            AnimatedVisibility(
-                visible = showBars,
-                enter = fadeIn(tween(50)),
-                exit = fadeOut(tween(50))
-            ) {
+            if (!isDetailScreen) {
                 TopAppBar(
                     title = { Text("Spark") },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -240,112 +229,100 @@ fun MainScreenContent(
             }
         },
         bottomBar = {
-            AnimatedVisibility(
-                visible = showBars,
-                enter = fadeIn(tween(50)),
-                exit = fadeOut(tween(50))
-            ) {
-                NavigationBar {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
+            NavigationBar {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
 
-                    items.forEach { screen ->
-                        NavigationBarItem(
-                            icon = { Icon(screen.icon, contentDescription = screen.title) },
-                            label = { Text(screen.title) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                items.forEach { screen ->
+                    NavigationBarItem(
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) },
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
                                 }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = MainScreen.Home.route,
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = {
-                fadeIn(animationSpec = tween(150, easing = LinearEasing))
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(100, easing = LinearEasing))
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(150, easing = LinearEasing))
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = tween(100, easing = LinearEasing))
-            }
-        ) {
-            composable(MainScreen.Home.route) {
-                HomeScreen(
-                    userViewModel = userViewModel,
-                    nfcAdapter = nfcAdapter,
-                    connectionViewModel = connectionViewModel,
-                    onNavigateToDashboard = { scannedUser ->
-                        // Store the scanned user and navigate to dashboard
-                        pendingScannedUser = scannedUser
-                        navController.navigate(MainScreen.Dashboard.route) {
-                            launchSingleTop = true
-                        }
-                    }
-                )
-            }
-
-            composable(MainScreen.Dashboard.route) {
-                DashboardScreen(
-                    intent = currentIntent,
-                    connectionViewModel = connectionViewModel,
-                    onNavigateToDetail = { connectionId ->
-                        navController.navigate(MainScreen.ConnectionDetail.createRoute(connectionId))
-                    },
-                    scannedUserFromHome = pendingScannedUser,
-                    onScannedUserHandled = {
-                        // Clear the pending scanned user after it's been handled
-                        pendingScannedUser = null
-                    }
-                )
-            }
-
-            composable(MainScreen.Map.route) {
-                MapScreen(
-                    connectionViewModel = connectionViewModel
-                )
-            }
-
-            composable(MainScreen.Profile.route) {
-                ProfileScreen(
-                    userViewModel = userViewModel
-                )
-            }
-            composable(MainScreen.ConnectionDetail.route) { backStackEntry ->
-                val connectionId = backStackEntry.arguments?.getString("connectionId") ?: ""
-                val connections by connectionViewModel.connections.observeAsState(emptyList())
-                val connection = connections.find { it.connectionId == connectionId }
-
-                if (connection != null) {
-                    ConnectionDetailScreen(
-                        connection = connection,
-                        onBack = {
-                            navController.popBackStack()
-                        },
-                        onRefresh = {
-                            connectionViewModel.refreshConnectionProfile(connection)
-                        },
-                        onDelete = {
-                            connectionViewModel.deleteConnection(connection.connectionId)
-                            navController.popBackStack()
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = MainScreen.Home.route,
+                modifier = if (!isDetailScreen) Modifier.padding(innerPadding) else Modifier.fillMaxSize()
+            ) {
+                composable(MainScreen.Home.route) {
+                    HomeScreen(
+                        userViewModel = userViewModel,
+                        nfcAdapter = nfcAdapter,
+                        connectionViewModel = connectionViewModel,
+                        onNavigateToDashboard = { scannedUser ->
+                            // Store the scanned user and navigate to dashboard
+                            pendingScannedUser = scannedUser
+                            navController.navigate(MainScreen.Dashboard.route) {
+                                launchSingleTop = true
+                            }
                         }
                     )
+                }
+
+                composable(MainScreen.Dashboard.route) {
+                    DashboardScreen(
+                        intent = currentIntent,
+                        connectionViewModel = connectionViewModel,
+                        onNavigateToDetail = { connectionId ->
+                            navController.navigate(
+                                MainScreen.ConnectionDetail.createRoute(
+                                    connectionId
+                                )
+                            )
+                        },
+                        scannedUserFromHome = pendingScannedUser,
+                        onScannedUserHandled = {
+                            // Clear the pending scanned user after it's been handled
+                            pendingScannedUser = null
+                        }
+                    )
+                }
+
+                composable(MainScreen.Map.route) {
+                    MapScreen(
+                        connectionViewModel = connectionViewModel
+                    )
+                }
+
+                composable(MainScreen.Profile.route) {
+                    ProfileScreen(
+                        userViewModel = userViewModel
+                    )
+                }
+                composable(MainScreen.ConnectionDetail.route) { backStackEntry ->
+                    val connectionId = backStackEntry.arguments?.getString("connectionId") ?: ""
+                    val connections by connectionViewModel.connections.observeAsState(emptyList())
+                    val connection = connections.find { it.connectionId == connectionId }
+
+                    if (connection != null) {
+                        ConnectionDetailScreen(
+                            connection = connection,
+                            onBack = {
+                                navController.popBackStack()
+                            },
+                            onRefresh = {
+                                connectionViewModel.refreshConnectionProfile(connection)
+                            },
+                            onDelete = {
+                                connectionViewModel.deleteConnection(connection.connectionId)
+                                navController.popBackStack()
+                            }
+                        )
+                    }
                 }
             }
         }
