@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Handle deep links from notifications
+     * Handle deep links from notifications and NFC
      */
     private fun handleDeepLink(intent: Intent?) {
         intent?.data?.let { uri ->
@@ -156,6 +156,17 @@ class MainActivity : ComponentActivity() {
                             Log.e("MainActivity", "Error handling deep link", e)
                         }
                     }
+                }
+            }
+
+            // Handle NFC deep link: taptap://connect/{userId}
+            if (uri.scheme == "taptap" && uri.host == "connect") {
+                val userId = uri.pathSegments.getOrNull(0)
+                Log.d("MainActivity", "NFC deep link - connecting with user: $userId")
+
+                if (userId != null) {
+                    // This will be handled in MainScreenContent
+                    // The currentIntent state will trigger navigation
                 }
             }
         }
@@ -287,9 +298,10 @@ fun MainScreenContent(
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
 
-    // Handle deep link navigation from notifications
+    // Handle deep link navigation from notifications and NFC
     LaunchedEffect(currentIntent) {
         currentIntent?.data?.let { uri ->
+            // Handle notification connection deep link: myapp://connection/{userId}
             if (uri.scheme == "myapp" && uri.host == "connection") {
                 val userId = uri.pathSegments.getOrNull(0)
                 if (userId != null) {
@@ -321,6 +333,32 @@ fun MainScreenContent(
                             }
                         } else {
                             Log.w("MainScreenContent", "Connection not found for userId: $userId")
+                        }
+                    }
+                }
+            }
+
+            // Handle NFC deep link: taptap://connect/{userId}
+            if (uri.scheme == "taptap" && uri.host == "connect") {
+                val userId = uri.pathSegments.getOrNull(0)
+                if (userId != null) {
+                    Log.d("MainScreenContent", "NFC tap detected - userId: $userId")
+
+                    currentUser?.uid?.let { currentUserId ->
+                        // Load user profile and potentially create connection
+                        userViewModel.getUserFromFirestore(userId) { user ->
+                            if (user != null) {
+                                pendingScannedUser = user
+                                // Navigate to Dashboard where the user can confirm the connection
+                                navController.navigate(MainScreen.Dashboard.route) {
+                                    popUpTo(MainScreen.Home.route) {
+                                        inclusive = false
+                                    }
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                Log.w("MainScreenContent", "User not found for NFC userId: $userId")
+                            }
                         }
                     }
                 }
@@ -405,7 +443,6 @@ fun MainScreenContent(
                     HomeScreen(
                         userViewModel = userViewModel,
                         nfcAdapter = nfcAdapter,
-                        connectionViewModel = connectionViewModel,
                         onNavigateToDashboard = { scannedUser ->
                             // Store the scanned user and navigate to dashboard
                             pendingScannedUser = scannedUser

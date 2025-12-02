@@ -55,6 +55,14 @@
                 <data android:scheme="myapp" android:host="connection" />
             </intent-filter>
 
+            <!-- DEEP LINK (NFC - TapTap Connect) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="taptap" android:host="connect" />
+            </intent-filter>
+
             <!-- NFC NDEF FILTER -->
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
@@ -62,6 +70,19 @@
                 <data android:mimeType="application/json" />
             </intent-filter>
         </activity>
+
+        <!-- NFC Host Card Emulation Service -->
+        <service
+            android:name=".nfc.ProfileHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/apduservice" />
+        </service>
 
         <!-- Override zxing's CaptureActivity to force portrait orientation -->
         <activity

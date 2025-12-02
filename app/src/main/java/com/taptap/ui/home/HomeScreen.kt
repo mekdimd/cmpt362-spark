@@ -1,9 +1,11 @@
 package com.taptap.ui.home
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.nfc.NfcAdapter
 import android.util.Base64
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
@@ -35,23 +37,116 @@ import com.google.zxing.common.BitMatrix
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.taptap.model.User
-import com.taptap.viewmodel.ConnectionViewModel
+import com.taptap.nfc.NfcReaderManager
 import com.taptap.viewmodel.UserViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     userViewModel: UserViewModel,
     nfcAdapter: NfcAdapter?,
-    connectionViewModel: com.taptap.viewmodel.ConnectionViewModel? = null,
     onNavigateToDashboard: ((User) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val currentUser by userViewModel.currentUser.observeAsState(User())
     val isLoading by userViewModel.isLoading.observeAsState(false)
     var showQrDialog by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // NFC Reader Manager
+    val nfcReaderManager = remember { NfcReaderManager() }
+    var isNfcReaderActive by remember { mutableStateOf(false) }
+
+    // Handle NFC contact discovery
+    LaunchedEffect(Unit) {
+        nfcReaderManager.contactFound.collect { userId ->
+            Log.d("HomeScreen", "NFC contact found: $userId")
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "Contact found! Loading profile...",
+                    duration = SnackbarDuration.Short
+                )
+            }
+
+            // Load user profile from Firestore
+            userViewModel.getUserFromFirestore(userId) { user ->
+                if (user != null) {
+                    Log.d("HomeScreen", "User loaded: ${user.fullName}")
+                    Toast.makeText(context, "Profile received: ${user.fullName}", Toast.LENGTH_SHORT).show()
+                    onNavigateToDashboard?.invoke(user)
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "User profile not found",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Handle NFC errors
+    LaunchedEffect(Unit) {
+        nfcReaderManager.error.collect { errorMessage ->
+            Log.e("HomeScreen", "NFC Error: $errorMessage")
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "NFC Error: $errorMessage",
+                    duration = SnackbarDuration.Long
+                )
+            }
+        }
+    }
+
+    // Manage NFC reader lifecycle - enable/disable based on isNfcReaderActive state
+    DisposableEffect(isNfcReaderActive) {
+        Log.d("HomeScreen", "╔═══════════════════════════════════════════════════╗")
+        Log.d("HomeScreen", "║  DisposableEffect triggered                       ║")
+        Log.d("HomeScreen", "║  isNfcReaderActive: $isNfcReaderActive${" ".repeat(28 - isNfcReaderActive.toString().length)}║")
+        Log.d("HomeScreen", "╚═══════════════════════════════════════════════════╝")
+
+        if (isNfcReaderActive && activity != null) {
+            Log.d("HomeScreen", "→ Enabling NFC reader mode...")
+            val enabled = nfcReaderManager.enableReaderMode(activity)
+            Log.d("HomeScreen", "→ Enable result: $enabled")
+
+            if (enabled) {
+                Log.d("HomeScreen", "✓✓✓ NFC reader mode is now ACTIVE")
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "NFC reader active - Hold phones back-to-back",
+                        duration = SnackbarDuration.Long
+                    )
+                }
+            } else {
+                Log.e("HomeScreen", "✗✗✗ Failed to enable NFC reader mode")
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Failed to enable NFC reader",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+        } else if (!isNfcReaderActive && activity != null) {
+            Log.d("HomeScreen", "→ Disabling NFC reader mode...")
+            nfcReaderManager.disableReaderMode(activity)
+            Log.d("HomeScreen", "✓ NFC reader mode is now INACTIVE")
+        }
+
+        onDispose {
+            Log.d("HomeScreen", "→ DisposableEffect onDispose - cleaning up")
+            if (activity != null && isNfcReaderActive) {
+                Log.d("HomeScreen", "→ Disabling NFC reader in dispose")
+                nfcReaderManager.disableReaderMode(activity)
+            }
+        }
+    }
 
     // Handle refresh state
     LaunchedEffect(isLoading) {
@@ -80,13 +175,17 @@ fun HomeScreen(
             userViewModel.refreshUserProfile()
         }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
+                    .padding(paddingValues),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Text(
                 text = "Your Profile",
                 style = MaterialTheme.typography.headlineMedium,
@@ -222,25 +321,56 @@ fun HomeScreen(
             if (nfcAdapter != null) {
                 FilledTonalButton(
                     onClick = {
+                        Log.d("HomeScreen", "=== NFC Button Clicked ===")
+                        Log.d("HomeScreen", "NFC Adapter enabled: ${nfcAdapter.isEnabled}")
+                        Log.d("HomeScreen", "Current isNfcReaderActive: $isNfcReaderActive")
+
                         if (!nfcAdapter.isEnabled) {
+                            Log.w("HomeScreen", "NFC is disabled on device")
                             Toast.makeText(
                                 context,
                                 "Please enable NFC in settings",
                                 Toast.LENGTH_SHORT
-                            )
-                                .show()
-                        } else {
-                            Toast.makeText(
-                                context,
-                                "Ready to share via NFC: Hold phones back-to-back",
-                                Toast.LENGTH_LONG
                             ).show()
+                        } else {
+                            // Toggle NFC reader mode state - DisposableEffect will handle actual enable/disable
+                            val newState = !isNfcReaderActive
+                            Log.d("HomeScreen", "Toggling isNfcReaderActive from $isNfcReaderActive to $newState")
+                            isNfcReaderActive = newState
+
+                            if (newState) {
+                                Log.d("HomeScreen", "✓ Set to ENABLE NFC reader (DisposableEffect will activate)")
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Activating NFC reader...",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+                            } else {
+                                Log.d("HomeScreen", "✓ Set to DISABLE NFC reader (DisposableEffect will deactivate)")
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Deactivating NFC reader...",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            }
+
+                            Log.d("HomeScreen", "Final isNfcReaderActive state: $isNfcReaderActive")
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .padding(bottom = 8.dp)
+                        .padding(bottom = 8.dp),
+                    colors = if (isNfcReaderActive) {
+                        ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        ButtonDefaults.filledTonalButtonColors()
+                    }
                 ) {
                     Icon(
                         Icons.Default.Nfc,
@@ -248,7 +378,11 @@ fun HomeScreen(
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Share via NFC", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (isNfcReaderActive) "NFC Scanning Active (Tap to Stop)"
+                        else "Scan via NFC",
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -298,6 +432,7 @@ fun HomeScreen(
                 Text("Scan Code", style = MaterialTheme.typography.titleMedium)
             }
         }
+    }
     }
 
     if (showQrDialog) {

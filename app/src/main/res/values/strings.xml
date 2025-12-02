@@ -3,4 +3,8 @@
     <string name="title_home">Home</string>
     <string name="title_dashboard">Dashboard</string>
     <string name="title_profile">Profile</string>
+
+    <!-- NFC HCE Service -->
+    <string name="nfc_service_description">Share your profile via NFC tap</string>
+    <string name="nfc_aid_description">TapTap Profile Sharing</string>
 </resources>
