@@ -54,6 +54,11 @@ class UserViewModel(context: Context) : ViewModel() {
         loadUserFromStorage()
         loadUserSettings()
         _uiState.value = UserUiState()
+
+        android.util.Log.d("UserViewModel", "════════════════════════════════════════════")
+        android.util.Log.d("UserViewModel", "UserViewModel INITIALIZED")
+        android.util.Log.d("UserViewModel", "Initial settings: ${_userSettings.value}")
+        android.util.Log.d("UserViewModel", "════════════════════════════════════════════")
     }
 
     private fun updateUiState() {
@@ -74,24 +79,39 @@ class UserViewModel(context: Context) : ViewModel() {
         val settingsJson = sharedPreferences?.getString("user_settings", null)
         if (settingsJson != null) {
             try {
-                _userSettings.value = UserSettings.fromJson(settingsJson)
+                val loadedSettings = UserSettings.fromJson(settingsJson)
+                _userSettings.value = loadedSettings
+                android.util.Log.d("UserViewModel", "Loaded settings from local: isPushNotificationsEnabled=${loadedSettings.isPushNotificationsEnabled}")
             } catch (e: Exception) {
                 // Use default settings
+                android.util.Log.w("UserViewModel", "Failed to load settings, using defaults", e)
                 _userSettings.value = UserSettings()
             }
         } else {
+            android.util.Log.d("UserViewModel", "No saved settings found, using defaults (all enabled)")
             _userSettings.value = UserSettings()
         }
+        updateUiState()
     }
 
     private fun saveUserSettings(settings: UserSettings) {
-        _userSettings.value = settings
-        sharedPreferences?.edit()?.putString("user_settings", settings.toJson().toString())?.apply()
+        // Ensure userId is set
+        val settingsWithUserId = if (settings.userId.isEmpty()) {
+            settings.copy(userId = _currentUser.value?.userId ?: "")
+        } else {
+            settings
+        }
+
+        _userSettings.value = settingsWithUserId
+        sharedPreferences?.edit()?.putString("user_settings", settingsWithUserId.toJson().toString())?.apply()
+
+        android.util.Log.d("UserViewModel", "Saved settings: isPushNotificationsEnabled=${settingsWithUserId.isPushNotificationsEnabled}, isConnectionEnabled=${settingsWithUserId.isConnectionNotificationEnabled}, isFollowUpEnabled=${settingsWithUserId.isFollowUpNotificationEnabled}")
 
         // Also save to Firestore
         viewModelScope.launch {
-            userRepository.saveUserSettings(settings)
+            userRepository.saveUserSettings(settingsWithUserId)
         }
+        updateUiState()
     }
 
     private fun loadUserFromStorage() {
@@ -151,6 +171,30 @@ class UserViewModel(context: Context) : ViewModel() {
                 }
                 .onFailure { error ->
                     _errorMessage.value = "Failed to load user profile: ${error.message}"
+                }
+
+            // Load user settings from Firestore or initialize with defaults
+            userRepository.getUserSettings(userId)
+                .onSuccess { firestoreSettings ->
+                    if (firestoreSettings != null) {
+                        _userSettings.value = firestoreSettings
+                        sharedPreferences?.edit()?.putString("user_settings", firestoreSettings.toJson().toString())?.apply()
+                        android.util.Log.d("UserViewModel", "Loaded settings from Firestore: isPushNotificationsEnabled=${firestoreSettings.isPushNotificationsEnabled}")
+                    } else {
+                        // Initialize with default settings (all enabled)
+                        val defaultSettings = UserSettings(userId = userId)
+                        _userSettings.value = defaultSettings
+                        saveUserSettings(defaultSettings)
+                        android.util.Log.d("UserViewModel", "Initialized default settings for user")
+                    }
+                    updateUiState()
+                }
+                .onFailure { error ->
+                    android.util.Log.w("UserViewModel", "Failed to load settings from Firestore: ${error.message}")
+                    // Use defaults
+                    val defaultSettings = UserSettings(userId = userId)
+                    _userSettings.value = defaultSettings
+                    updateUiState()
                 }
 
             _isLoading.value = false
@@ -343,6 +387,62 @@ class UserViewModel(context: Context) : ViewModel() {
     }
 
     /**
+     * Update follow-up reminder days preference
+     */
+    fun updateFollowUpReminderDays(days: Int) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            followUpReminderValue = days,
+            followUpReminderUnit = "days"
+        )
+        saveUserSettings(updated)
+        updateUiState()
+        android.util.Log.d("UserViewModel", "Follow-up reminder days updated to: $days")
+    }
+
+    /**
+     * Update follow-up reminder timing with value and unit
+     */
+    fun updateFollowUpReminderTiming(value: Int, unit: String) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            followUpReminderValue = value,
+            followUpReminderUnit = unit
+        )
+        saveUserSettings(updated)
+        updateUiState()
+        android.util.Log.d("UserViewModel", "Follow-up reminder timing updated to: $value $unit")
+    }
+
+    /**
+     * Update connection notification preference
+     */
+    fun updateConnectionNotificationPreference(enabled: Boolean) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            isConnectionNotificationEnabled = enabled
+        )
+        saveUserSettings(updated)
+        updateUiState()
+    }
+
+    /**
+     * Update follow-up notification preference
+     */
+    fun updateFollowUpNotificationPreference(enabled: Boolean) {
+        val current = _userSettings.value ?: UserSettings()
+        val updated = current.copy(
+            userId = _currentUser.value?.userId ?: "",
+            isFollowUpNotificationEnabled = enabled
+        )
+        saveUserSettings(updated)
+        updateUiState()
+    }
+
+    /**
      * Add a new social link
      */
     fun addSocialLink(link: SocialLink) {
@@ -424,5 +524,3 @@ class UserViewModel(context: Context) : ViewModel() {
         clearUserData()
     }
 }
-
-

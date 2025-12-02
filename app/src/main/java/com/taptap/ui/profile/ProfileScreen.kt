@@ -64,43 +64,89 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Privacy Section
-        SettingsSection(title = "Privacy & Notifications") {
+        SettingsSection(title = "Privacy") {
             SettingsSwitchRow(
                 icon = Icons.Default.LocationOn,
                 title = "Share Location",
                 subtitle = "Allow sharing location when exchanging contacts",
                 checked = settings.isLocationShared,
                 onCheckedChange = {
+                    android.util.Log.d("ProfileScreen", "📍 Location sharing toggled to: $it")
                     userViewModel.toggleLocationSharing()
-                }
-            )
-
-            SettingsDivider()
-
-            SettingsSwitchRow(
-                icon = Icons.Default.Notifications,
-                title = "Push Notifications",
-                subtitle = "Get notified about new connections",
-                checked = settings.isPushNotificationsEnabled,
-                onCheckedChange = {
-                    userViewModel.updateNotificationPreference(!settings.isPushNotificationsEnabled)
                 }
             )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Support Section
-        SettingsSection(title = "Support") {
-            SettingsRow(
-                icon = Icons.Default.Help,
-                title = "Help Center",
-                subtitle = "Get help with Spark",
-                onClick = { /* TODO */ }
+        // Notifications Section
+        SettingsSection(title = "Notifications") {
+            SettingsSwitchRow(
+                icon = Icons.Default.Notifications,
+                title = "Push Notifications",
+                subtitle = "Enable all push notifications",
+                checked = settings.isPushNotificationsEnabled,
+                onCheckedChange = {
+                    userViewModel.updateNotificationPreference(!settings.isPushNotificationsEnabled)
+                }
             )
 
             SettingsDivider()
 
+            // Connection Notifications - Always visible, disabled when master is off
+            SettingsSwitchRow(
+                icon = Icons.Default.PersonAdd,
+                title = "Connection Notifications",
+                subtitle = "Get notified when you connect with someone",
+                checked = settings.isConnectionNotificationEnabled,
+                enabled = settings.isPushNotificationsEnabled,
+                onCheckedChange = {
+                    if (settings.isPushNotificationsEnabled) {
+                        userViewModel.updateConnectionNotificationPreference(!settings.isConnectionNotificationEnabled)
+                    }
+                }
+            )
+
+            SettingsDivider()
+
+            // Follow-up Reminders - Always visible, disabled when master is off
+            SettingsSwitchRow(
+                icon = Icons.Default.Schedule,
+                title = "Follow-up Reminders",
+                subtitle = "Get reminded to reconnect with people",
+                checked = settings.isFollowUpNotificationEnabled,
+                enabled = settings.isPushNotificationsEnabled,
+                onCheckedChange = {
+                    android.util.Log.d("ProfileScreen", "⏰ Follow-up Reminders toggled (enabled=${settings.isPushNotificationsEnabled})")
+                    if (settings.isPushNotificationsEnabled) {
+                        userViewModel.updateFollowUpNotificationPreference(!settings.isFollowUpNotificationEnabled)
+                    }
+                }
+            )
+
+            // Only show timing controls if BOTH master AND follow-up are enabled
+            val showTimingControls = settings.isPushNotificationsEnabled && settings.isFollowUpNotificationEnabled
+
+            if (showTimingControls) {
+                SettingsDivider()
+
+                FollowUpReminderConfig(
+                    icon = Icons.Default.Timer,
+                    title = "Follow-up Timing",
+                    subtitle = "When to send reminders",
+                    currentValue = settings.followUpReminderValue,
+                    currentUnit = settings.followUpReminderUnit,
+                    onConfigChange = { value, unit ->
+                        userViewModel.updateFollowUpReminderTiming(value, unit)
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Support Section
+        SettingsSection(title = "Support") {
             SettingsRow(
                 icon = Icons.Default.Info,
                 title = "About",
@@ -186,7 +232,7 @@ fun HeroProfileCard(
 
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    Text (
+                    Text(
                         text = user.description.ifEmpty { "" },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
@@ -301,8 +347,11 @@ fun SettingsSwitchRow(
     title: String,
     subtitle: String,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val contentAlpha = if (enabled) 1f else 0.38f
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -312,30 +361,37 @@ fun SettingsSwitchRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha),
             modifier = Modifier.size(24.dp)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
 
         Column(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp)
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
         }
 
         Switch(
             checked = checked,
+            enabled = enabled,
             onCheckedChange = onCheckedChange
         )
     }
@@ -349,3 +405,221 @@ fun SettingsDivider() {
     )
 }
 
+@Composable
+fun FollowUpReminderSlider(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    currentDays: Int,
+    onDaysChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "$currentDays days",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Slider
+        Slider(
+            value = currentDays.toFloat(),
+            onValueChange = { onDaysChange(it.toInt()) },
+            valueRange = 7f..90f,
+            steps = 82, // 83 values from 7 to 90
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp)
+        )
+
+        // Range labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "7 days",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "90 days",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun FollowUpReminderConfig(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    currentValue: Int,
+    currentUnit: String,
+    onConfigChange: (Int, String) -> Unit
+) {
+    var selectedUnit by remember(currentUnit) { mutableStateOf(currentUnit) }
+    var sliderValue by remember(
+        currentValue,
+        selectedUnit
+    ) { mutableStateOf(currentValue.toFloat()) }
+
+    // Define ranges based on unit
+    val (minValue, maxValue, steps) = when (selectedUnit) {
+        "minutes" -> Triple(1f, 60f, 58) // 1-60 minutes
+        "days" -> Triple(1f, 90f, 88) // 1-90 days
+        "months" -> Triple(1f, 12f, 10) // 1-12 months
+        else -> Triple(1f, 90f, 88)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "${sliderValue.toInt()} ${selectedUnit}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Unit selector chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("minutes", "days", "months").forEach { unit ->
+                FilterChip(
+                    selected = selectedUnit == unit,
+                    onClick = {
+                        selectedUnit = unit
+                        // Reset slider to reasonable default for new unit
+                        sliderValue = when (unit) {
+                            "minutes" -> 5f
+                            "days" -> 30f
+                            "months" -> 1f
+                            else -> 30f
+                        }
+                        onConfigChange(sliderValue.toInt(), unit)
+                    },
+                    label = {
+                        Text(
+                            unit.capitalize(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Slider
+        Slider(
+            value = sliderValue,
+            onValueChange = {
+                sliderValue = it
+                onConfigChange(it.toInt(), selectedUnit)
+            },
+            valueRange = minValue..maxValue,
+            steps = steps,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp)
+        )
+
+        // Range labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "${minValue.toInt()} ${selectedUnit}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${maxValue.toInt()} ${selectedUnit}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}

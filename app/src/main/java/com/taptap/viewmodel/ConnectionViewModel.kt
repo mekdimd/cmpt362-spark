@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taptap.model.Connection
 import com.taptap.model.User
+import com.taptap.notification.FollowUpScheduler
+import com.taptap.notification.NotificationHelper
 import com.taptap.repository.ConnectionRepository
 import com.taptap.repository.UserRepository
 import com.taptap.service.LocationService
@@ -41,10 +43,14 @@ class ConnectionViewModel : ViewModel() {
     val connectionCount: LiveData<Int> = _connectionCount
 
     private lateinit var locationService: LocationService
+    private lateinit var notificationHelper: NotificationHelper
+    private lateinit var followUpScheduler: FollowUpScheduler
 
     // Initialize with context
     fun initializeLocationService(context: Context) {
         locationService = LocationService(context)
+        notificationHelper = NotificationHelper(context)
+        followUpScheduler = FollowUpScheduler(context)
     }
 
     /**
@@ -149,9 +155,13 @@ class ConnectionViewModel : ViewModel() {
                 if (location != null) {
                     latitude = location.latitude
                     longitude = location.longitude
-                    eventLocation = locationService.getLocationName(location.latitude, location.longitude)
+                    eventLocation =
+                        locationService.getLocationName(location.latitude, location.longitude)
 
-                    Log.d("ConnectionViewModel", "Captured location: $latitude, $longitude - $eventLocation")
+                    Log.d(
+                        "ConnectionViewModel",
+                        "Captured location: $latitude, $longitude - $eventLocation"
+                    )
                 } else {
                     Log.w("ConnectionViewModel", "Could not capture location")
                 }
@@ -189,6 +199,29 @@ class ConnectionViewModel : ViewModel() {
                     .onSuccess { connectionId ->
                         // Create reverse connection (bidirectional)
                         createReverseConnection(connectedUser.userId, userId, connectionMethod)
+
+                        // Check user settings before showing connection notification
+                        viewModelScope.launch {
+                            val settingsResult = userRepository.getUserSettings(userId)
+                            val settings = settingsResult.getOrNull()
+
+                            if (settings?.isPushNotificationsEnabled == true &&
+                                settings.isConnectionNotificationEnabled
+                            ) {
+                                // Show connection notification
+                                notificationHelper.showConnectionNotification(
+                                    connectionId = connectionId,
+                                    userId = connectedUser.userId,
+                                    userName = connectedUser.fullName,
+                                    userEmail = connectedUser.email,
+                                    userPhone = connectedUser.phone
+                                )
+                            }
+                        }
+
+                        // Schedule follow-up reminder (checks settings internally)
+                        val connectionWithId = connection.copy(connectionId = connectionId)
+                        scheduleFollowUpReminder(connectionWithId)
 
                         _successMessage.value = "Connection saved with location!"
                         // Reload connections
@@ -263,6 +296,29 @@ class ConnectionViewModel : ViewModel() {
                     // Create reverse connection (bidirectional)
                     createReverseConnection(connectedUser.userId, userId, connectionMethod)
 
+                    // Check user settings before showing connection notification
+                    viewModelScope.launch {
+                        val settingsResult = userRepository.getUserSettings(userId)
+                        val settings = settingsResult.getOrNull()
+
+                        if (settings?.isPushNotificationsEnabled == true &&
+                            settings.isConnectionNotificationEnabled
+                        ) {
+                            // Show connection notification
+                            notificationHelper.showConnectionNotification(
+                                connectionId = connectionId,
+                                userId = connectedUser.userId,
+                                userName = connectedUser.fullName,
+                                userEmail = connectedUser.email,
+                                userPhone = connectedUser.phone
+                            )
+                        }
+                    }
+
+                    // Schedule follow-up reminder (checks settings internally)
+                    val connectionWithId = connection.copy(connectionId = connectionId)
+                    scheduleFollowUpReminder(connectionWithId)
+
                     _successMessage.value = "Connection saved successfully!"
                     // Reload connections
                     loadConnections(userId)
@@ -272,6 +328,46 @@ class ConnectionViewModel : ViewModel() {
                 }
 
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Schedule a follow-up reminder for a connection
+     * Uses user's settings to determine delay and checks if enabled
+     */
+    private fun scheduleFollowUpReminder(connection: Connection) {
+        viewModelScope.launch {
+            try {
+                Log.d("ConnectionViewModel", "═══════════════════════════════════════════════")
+                Log.d("ConnectionViewModel", "scheduleFollowUpReminder called")
+                Log.d("ConnectionViewModel", "   Connection ID: ${connection.connectionId}")
+                Log.d("ConnectionViewModel", "   User ID (owner): ${connection.userId}")
+                Log.d("ConnectionViewModel", "   Connected User: ${connection.connectedUserName}")
+                Log.d("ConnectionViewModel", "   Connected User ID: ${connection.connectedUserId}")
+
+                // Fetch user settings
+                val settingsResult = userRepository.getUserSettings(connection.userId)
+                val settings = settingsResult.getOrNull()
+
+                // Only schedule if master notifications AND follow-up notifications are enabled
+                if (settings?.isPushNotificationsEnabled != true || !settings.isFollowUpNotificationEnabled) {
+                    Log.d(
+                        "ConnectionViewModel",
+                        "   > Follow-up notifications disabled, skipping schedule"
+                    )
+                    Log.d("ConnectionViewModel", "═══════════════════════════════════════════════")
+                    return@launch
+                }
+
+                val delayValue = settings.followUpReminderValue
+                val delayUnit = settings.followUpReminderUnit
+
+                Log.d("ConnectionViewModel", "   > Scheduling follow-up in $delayValue $delayUnit")
+                Log.d("ConnectionViewModel", "═══════════════════════════════════════════════")
+                followUpScheduler.scheduleFollowUpReminder(connection, delayValue, delayUnit)
+            } catch (e: Exception) {
+                Log.e("ConnectionViewModel", "Failed to schedule follow-up reminder", e)
+            }
         }
     }
 
@@ -299,7 +395,14 @@ class ConnectionViewModel : ViewModel() {
                         timestamp = System.currentTimeMillis(),
                         connectionMethod = connectionMethod
                     )
+
                     connectionRepository.saveConnection(reverseConnection)
+                        .onSuccess { reverseConnectionId ->
+                            Log.d(
+                                "ConnectionViewModel",
+                                "SUCCESS: Reverse connection created with ID: $reverseConnectionId"
+                            )
+                        }
                 }
             }
         } catch (e: Exception) {
@@ -383,7 +486,8 @@ class ConnectionViewModel : ViewModel() {
                 .onSuccess {
                     _successMessage.value = "Connection deleted"
                     // Remove from local list
-                    _connections.value = _connections.value?.filter { it.connectionId != connectionId }
+                    _connections.value =
+                        _connections.value?.filter { it.connectionId != connectionId }
                 }
                 .onFailure { error ->
                     _errorMessage.value = "Failed to delete connection: ${error.message}"
@@ -513,7 +617,8 @@ class ConnectionViewModel : ViewModel() {
                 .onSuccess { connectionList ->
                     // For each connection, fetch the latest user profile
                     val refreshedConnections = connectionList.map { connection ->
-                        val userResult = userRepository.getUser(connection.connectedUserId, forceRefresh = true)
+                        val userResult =
+                            userRepository.getUser(connection.connectedUserId, forceRefresh = true)
                         if (userResult.isSuccess && userResult.getOrNull() != null) {
                             val user = userResult.getOrNull()!!
                             // Update the connection in Firestore

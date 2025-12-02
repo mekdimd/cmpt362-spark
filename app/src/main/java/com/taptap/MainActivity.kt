@@ -1,10 +1,14 @@
 package com.taptap
 
+import android.Manifest
 import android.content.Intent
 import android.nfc.NfcAdapter
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -15,13 +19,17 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.taptap.notification.NotificationHelper
 import com.taptap.ui.auth.ForgotPasswordScreen
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.taptap.ui.auth.LoginScreen
 import com.taptap.ui.auth.RegisterScreen
 import com.taptap.ui.connection.ConnectionDetailScreen
@@ -42,6 +50,18 @@ class MainActivity : ComponentActivity() {
     lateinit var authViewModel: AuthViewModel
     lateinit var connectionViewModel: ConnectionViewModel
     private var currentIntent: MutableState<Intent?> = mutableStateOf(null)
+    private lateinit var notificationHelper: NotificationHelper
+
+    // Notification permission launcher for Android 13+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("MainActivity", "Notification permission granted")
+        } else {
+            Log.d("MainActivity", "Notification permission denied")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,11 +72,18 @@ class MainActivity : ComponentActivity() {
         authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
         connectionViewModel = ViewModelProvider(this)[ConnectionViewModel::class.java]
 
-        // Initialize location service
+        // Initialize services
         connectionViewModel.initializeLocationService(this)
+        notificationHelper = NotificationHelper(this)
+
+        // Request notification permission for Android 13+
+        requestNotificationPermission()
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         currentIntent.value = intent
+
+        // Handle deep link from notification
+        handleDeepLink(intent)
 
         setContent {
             TapTapTheme {
@@ -74,6 +101,64 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         currentIntent.value = intent
+        handleDeepLink(intent)
+    }
+
+    /**
+     * Request notification permission for Android 13+
+     */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!notificationHelper.hasNotificationPermission()) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    /**
+     * Handle deep links from notifications
+     */
+    private fun handleDeepLink(intent: Intent?) {
+        intent?.data?.let { uri ->
+            Log.d("MainActivity", "Deep link received: $uri")
+
+            // Handle connection deep link: myapp://connection/{userId}
+            if (uri.scheme == "myapp" && uri.host == "connection") {
+                val userId = uri.pathSegments.getOrNull(0)
+                val userName = intent.getStringExtra(NotificationHelper.EXTRA_USER_NAME)
+
+                Log.d("MainActivity", "Opening connection for user: $userName (ID: $userId)")
+
+                if (userId != null) {
+                    // Find the connection with this user ID using lifecycleScope
+                    lifecycleScope.launch {
+                        try {
+                            // Load connections first if not loaded
+                            val currentUserId = authViewModel.currentUser.value?.uid
+                            if (currentUserId != null) {
+                                connectionViewModel.loadConnections(currentUserId)
+                            }
+
+                            // Wait a bit for connections to load
+                            delay(500)
+
+                            val connections = connectionViewModel.connections.value ?: emptyList()
+                            val connection = connections.find { it.connectedUserId == userId }
+
+                            if (connection != null) {
+                                Log.d("MainActivity", "Found connection ID: ${connection.connectionId}")
+                                // Store pending connection ID to navigate after UI is ready
+                                // You'll handle this in MainScreenContent
+                            } else {
+                                Log.w("MainActivity", "Connection not found for user ID: $userId")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Error handling deep link", e)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -89,7 +174,6 @@ sealed class MainScreen(val route: String, val title: String, val icon: ImageVec
     object Dashboard : MainScreen("dashboard", "Connections", Icons.Filled.People)
     object Map : MainScreen("map", "Map", Icons.Filled.Map)
     object Profile : MainScreen("profile", "Profile", Icons.Filled.AccountCircle)
-    object Settings : MainScreen("settings", "Settings", Icons.Filled.Settings)
     object EditProfile : MainScreen("edit_profile", "Edit Profile", Icons.Filled.Edit)
     object ConnectionDetail :
         MainScreen("connection_detail/{connectionId}", "Connection", Icons.Filled.Person) {
@@ -197,9 +281,52 @@ fun MainScreenContent(
 ) {
     val navController = rememberNavController()
     val items = listOf(MainScreen.Home, MainScreen.Dashboard, MainScreen.Map, MainScreen.Profile)
+    val currentUser by authViewModel.currentUser.observeAsState()
+    val connections by connectionViewModel.connections.observeAsState(emptyList())
 
     // Shared state for scanned user from HomeScreen to DashboardScreen
     var pendingScannedUser by remember { mutableStateOf<com.taptap.model.User?>(null) }
+
+    // Handle deep link navigation from notifications
+    LaunchedEffect(currentIntent) {
+        currentIntent?.data?.let { uri ->
+            if (uri.scheme == "myapp" && uri.host == "connection") {
+                val userId = uri.pathSegments.getOrNull(0)
+                if (userId != null) {
+                    // Load connections if not already loaded
+                    currentUser?.uid?.let { currentUserId ->
+                        if (connections.isEmpty()) {
+                            connectionViewModel.loadConnections(currentUserId)
+                        }
+
+                        // Wait for connections to load
+                        delay(500)
+
+                        // Find the connection
+                        val connection = connectionViewModel.connections.value?.find {
+                            it.connectedUserId == userId
+                        }
+
+                        if (connection != null) {
+                            Log.d("MainScreenContent", "Navigating to connection: ${connection.connectionId}")
+                            // Navigate to the connection detail screen
+                            navController.navigate(
+                                MainScreen.ConnectionDetail.createRoute(connection.connectionId)
+                            ) {
+                                // Clear the back stack to dashboard
+                                popUpTo(MainScreen.Dashboard.route) {
+                                    inclusive = false
+                                }
+                                launchSingleTop = true
+                            }
+                        } else {
+                            Log.w("MainScreenContent", "Connection not found for userId: $userId")
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Check if we're on the detail screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -323,17 +450,6 @@ fun MainScreenContent(
                     )
                 }
 
-                composable(MainScreen.Settings.route) {
-                    com.taptap.ui.settings.SettingsScreen(
-                        userViewModel = userViewModel,
-                        onNavigateToEditProfile = {
-                            navController.navigate(MainScreen.EditProfile.route)
-                        },
-                        onNavigateBack = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
 
                 composable(MainScreen.EditProfile.route) {
                     com.taptap.ui.settings.EditProfileScreen(

@@ -87,212 +87,216 @@ fun HomeScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-        Text(
-            text = "Your Profile",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
+            Text(
+                text = "Your Profile",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
 
-        // Large Profile Card
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
-        ) {
-            Column(
+            // Large Profile Card
+            ElevatedCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(bottom = 24.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
             ) {
-                // Profile Picture Placeholder
-                Box(
+                Column(
                     modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Profile Picture Placeholder
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = currentUser.fullName
+                                .split(" ")
+                                .mapNotNull { it.firstOrNull()?.uppercase() }
+                                .take(2)
+                                .joinToString(""),
+                            style = MaterialTheme.typography.displayLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Name
                     Text(
-                        text = currentUser.fullName
-                            .split(" ")
-                            .mapNotNull { it.firstOrNull()?.uppercase() }
-                            .take(2)
-                            .joinToString(""),
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Name
-                Text(
-                    text = currentUser.fullName.ifEmpty { "No Name" },
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (currentUser.description.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = currentUser.description,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        text = currentUser.fullName.ifEmpty { "No Name" },
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    if (currentUser.description.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = currentUser.description,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                HorizontalDivider()
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
 
-                if (currentUser.email.isNotEmpty()) {
-                    ProfileInfoRow(
-                        icon = Icons.Default.Email,
-                        text = currentUser.email
-                    )
-                }
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                if (currentUser.phone.isNotEmpty()) {
-                    ProfileInfoRow(
-                        icon = Icons.Default.Phone,
-                        text = currentUser.phone
-                    )
-                }
+                    if (currentUser.email.isNotEmpty()) {
+                        ProfileInfoRow(
+                            icon = Icons.Default.Email,
+                            text = currentUser.email
+                        )
+                    }
 
-                if (currentUser.location.isNotEmpty()) {
-                    ProfileInfoRow(
-                        icon = Icons.Default.LocationOn,
-                        text = currentUser.location
-                    )
-                }
+                    if (currentUser.phone.isNotEmpty()) {
+                        ProfileInfoRow(
+                            icon = Icons.Default.Phone,
+                            text = currentUser.phone
+                        )
+                    }
 
-                // Social Links - Show visible links
-                val visibleLinks = currentUser.socialLinks.filter { it.isVisibleOnProfile }
+                    if (currentUser.location.isNotEmpty()) {
+                        ProfileInfoRow(
+                            icon = Icons.Default.LocationOn,
+                            text = currentUser.location
+                        )
+                    }
 
-                if (visibleLinks.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Social Links - Show visible links
+                    val visibleLinks = currentUser.socialLinks.filter { it.isVisibleOnProfile }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        visibleLinks.take(4).forEachIndexed { index, link ->
-                            if (index > 0) Spacer(modifier = Modifier.width(8.dp))
-                            AssistChip(
-                                onClick = { },
-                                label = { Text(link.label) },
-                                leadingIcon = {
-                                    Icon(
-                                        link.platform.icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            )
+                    if (visibleLinks.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            visibleLinks.take(4).forEachIndexed { index, link ->
+                                if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+                                AssistChip(
+                                    onClick = { },
+                                    label = { Text(link.label) },
+                                    leadingIcon = {
+                                        Icon(
+                                            link.platform.icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Action Buttons Section
-        Text(
-            text = "Share Your Profile",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
+            // Action Buttons Section
+            Text(
+                text = "Share Your Profile",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
 
-        // NFC Share Button
-        if (nfcAdapter != null) {
-            FilledTonalButton(
-                onClick = {
-                    if (!nfcAdapter.isEnabled) {
-                        Toast.makeText(context, "Please enable NFC in settings", Toast.LENGTH_SHORT)
-                            .show()
-                    } else {
-                        Toast.makeText(
-                            context,
-                            "Ready to share via NFC: Hold phones back-to-back",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                },
+            // NFC Share Button
+            if (nfcAdapter != null) {
+                FilledTonalButton(
+                    onClick = {
+                        if (!nfcAdapter.isEnabled) {
+                            Toast.makeText(
+                                context,
+                                "Please enable NFC in settings",
+                                Toast.LENGTH_SHORT
+                            )
+                                .show()
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "Ready to share via NFC: Hold phones back-to-back",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(bottom = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Nfc,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Share via NFC", style = MaterialTheme.typography.titleMedium)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Generate QR Code Button
+            OutlinedButton(
+                onClick = { showQrDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .padding(bottom = 8.dp)
             ) {
                 Icon(
-                    Icons.Default.Nfc,
+                    Icons.Default.QrCode2,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Text("Share via NFC", style = MaterialTheme.typography.titleMedium)
+                Text("Share QR Code", style = MaterialTheme.typography.titleMedium)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-        }
 
-        // Generate QR Code Button
-        OutlinedButton(
-            onClick = { showQrDialog = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Icon(
-                Icons.Default.QrCode2,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text("Generate QR Code", style = MaterialTheme.typography.titleMedium)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Scan QR Code Button
-        OutlinedButton(
-            onClick = {
-                val options = ScanOptions().apply {
-                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                    setPrompt("")
-                    setCameraId(0)
-                    setBeepEnabled(false)
-                    setBarcodeImageEnabled(true)
-                    setOrientationLocked(true) // Lock orientation
-                }
-                qrScanner.launch(options)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Icon(
-                Icons.Default.QrCodeScanner,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text("Scan QR Code", style = MaterialTheme.typography.titleMedium)
-        }
+            // Scan QR Code Button
+            OutlinedButton(
+                onClick = {
+                    val options = ScanOptions().apply {
+                        setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        setPrompt("")
+                        setCameraId(0)
+                        setBeepEnabled(false)
+                        setBarcodeImageEnabled(true)
+                        setOrientationLocked(true) // Lock orientation
+                    }
+                    qrScanner.launch(options)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Icon(
+                    Icons.Default.QrCodeScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Scan Code", style = MaterialTheme.typography.titleMedium)
+            }
         }
     }
 
