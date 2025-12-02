@@ -135,6 +135,22 @@ class NotificationHelper(
             )
         }
 
+        // Add Message action if phone is available
+        if (!userPhone.isNullOrEmpty()) {
+            val messageIntent = createMessageIntent(userPhone)
+            val messagePendingIntent = PendingIntent.getActivity(
+                context,
+                (connectionId + "_message").hashCode(),
+                messageIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(
+                R.drawable.ic_launcher_foreground,
+                "Message",
+                messagePendingIntent
+            )
+        }
+
         // Add Email action if email is available
         if (!userEmail.isNullOrEmpty()) {
             val emailIntent = createEmailIntent(userEmail, userName)
@@ -145,20 +161,31 @@ class NotificationHelper(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(
-                R.drawable.ic_launcher_foreground, // Replace with email icon
+                R.drawable.ic_launcher_foreground,
                 "Email",
                 emailPendingIntent
             )
         }
 
         try {
+            // Use unique notification ID combining connectionId and userId to avoid duplicates
+            val notificationId = (connectionId + userId + "_followup").hashCode()
+
+            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
+            android.util.Log.d("NotificationHelper", "🔔 SHOWING FOLLOW-UP NOTIFICATION")
+            android.util.Log.d("NotificationHelper", "   User: $userName")
+            android.util.Log.d("NotificationHelper", "   Connection ID: $connectionId")
+            android.util.Log.d("NotificationHelper", "   User ID: $userId")
+            android.util.Log.d("NotificationHelper", "   Notification ID: $notificationId")
+            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
+
             NotificationManagerCompat.from(context).notify(
-                connectionId.hashCode(),
+                notificationId,
                 builder.build()
             )
-            android.util.Log.d("NotificationHelper", "Notification shown for $userName")
+            android.util.Log.d("NotificationHelper", "✅ Follow-up notification shown for $userName")
         } catch (e: SecurityException) {
-            android.util.Log.e("NotificationHelper", "Failed to show notification", e)
+            android.util.Log.e("NotificationHelper", "❌ Failed to show notification", e)
         }
     }
 
@@ -187,7 +214,7 @@ class NotificationHelper(
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_CONNECTION)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your app icon
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Connected with $userName")
             .setContentText("You're now connected! Tap to view profile.")
             .setStyle(
@@ -248,13 +275,24 @@ class NotificationHelper(
         }
 
         try {
+            // Use unique notification ID for connection notification
+            val notificationId = (connectionId + userId + "_connection").hashCode()
+
+            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
+            android.util.Log.d("NotificationHelper", "🔔 SHOWING CONNECTION NOTIFICATION")
+            android.util.Log.d("NotificationHelper", "   User: $userName")
+            android.util.Log.d("NotificationHelper", "   Connection ID: $connectionId")
+            android.util.Log.d("NotificationHelper", "   User ID: $userId")
+            android.util.Log.d("NotificationHelper", "   Notification ID: $notificationId")
+            android.util.Log.d("NotificationHelper", "═══════════════════════════════════════════════")
+
             NotificationManagerCompat.from(context).notify(
-                (connectionId + "_connection").hashCode(),
+                notificationId,
                 builder.build()
             )
-            android.util.Log.d("NotificationHelper", "Connection notification shown for $userName")
+            android.util.Log.d("NotificationHelper", "✅ Connection notification shown for $userName")
         } catch (e: SecurityException) {
-            android.util.Log.e("NotificationHelper", "Failed to show connection notification", e)
+            android.util.Log.e("NotificationHelper", "❌ Failed to show connection notification", e)
         }
     }
 
